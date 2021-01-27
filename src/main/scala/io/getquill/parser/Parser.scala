@@ -31,6 +31,7 @@ type SealedParser[R] = (quoted.Expr[_] => R)
 object Parser {
   val empty: Parser[Ast] = PartialFunction.empty[Expr[_], Ast]
 
+  //Error check
   def throwExpressionError(expr: Expr[_], astClass: Class[_])(using Quotes) =
     import quotes.reflect._
     report.throwError(s"""|
@@ -46,6 +47,8 @@ object Parser {
 
   object Implicits {
 
+    //https://docs.scala-lang.org/overviews/core/implicit-classes.html
+    //This keyword makes the class’s primary constructor available for implicit conversions when the class is in scope.
     implicit class ParserExtensions[R](parser: Parser[R])(implicit val qctx: Quotes, ct: ClassTag[R]) {
       import quotes.reflect._
 
@@ -54,17 +57,24 @@ object Parser {
           throwExpressionError(expr, ct.runtimeClass)
         }        
     }
+
   }
 
   trait Delegated[R] extends Parser[R] with TastyMatchers {
     override implicit val qctx: Quotes
     def delegate: PartialFunction[Expr[_], R]
+
+    //apply() is an abstract member of PartialFunction
     override def apply(expr: Expr[_]): R = {
       delegate.apply(expr)
     }
+
+    //isDefinedAt() is an abstract member of PartialFunction
+    //Checks if a value is contained in the function's domain.
     def isDefinedAt(expr: Expr[_]): Boolean = {
       delegate.isDefinedAt(expr)
     }
+
   }
 
   trait Clause[R](using override val qctx: Quotes) extends Delegated[R] with TastyMatchers with Idents with QuatMaking { base =>
@@ -82,6 +92,7 @@ object Parser {
     def composite: PartialFunction[Expr[_], Ast] =
       children.map(child => child.reparent(this)).foldRight(PartialFunction.empty[Expr[_], Ast])(_ orElse _)
     
+    //Is this to chain parsers?
     def combine(other: Series): Series =
       Series(self.children ++ other.children)
   }
@@ -115,6 +126,7 @@ trait ParserLibrary extends ParserFactory {
   //   def apply(root: Parser[Ast]) = PartialFunction.empty[Expr[_], Ast]
   // })
 
+  //Everything needs to be parsed from a quoted state, and sent to the subsequent parser
   def apply(using Quotes): Parser[Ast] =
     quotationParser
         .combine(queryParser)
@@ -376,6 +388,7 @@ case class OperationsParser(root: Parser[Ast] = Parser.empty)(override implicit 
     ))
   }
 
+  //Handles named operations, ie Argument Operation Argument
   object NamedOp1 {
     def unapply(expr: Expr[_]): Option[(Expr[_], String, Expr[_])] =
       UntypeExpr(expr) match {
@@ -386,7 +399,6 @@ case class OperationsParser(root: Parser[Ast] = Parser.empty)(override implicit 
       }
   }
 
-  // Harrison Test
   // TODO Is there any way to check if Numeric[T] exists if you don't know the type T
   // but know the type of the term?
   // def isNumeric(expr: Expr[Any]) = {
@@ -400,6 +412,7 @@ case class OperationsParser(root: Parser[Ast] = Parser.empty)(override implicit 
   def del: PartialFunction[Expr[_], Ast] = {
     case '{ ($str:String).like($other) } => 
       Infix(List(""," like ",""), List(astParse(str), astParse(other)), true, Quat.Value)
+
     case expr @ NamedOp1(left, "==", right) =>
       val leftAst = astParse(left)
       val rightAst = astParse(right)
@@ -411,20 +424,48 @@ case class OperationsParser(root: Parser[Ast] = Parser.empty)(override implicit 
       BinaryOperation(astParse(left), BooleanOperator.&&, astParse(right))
 
     case '{ ($i: Int).toString } => astParse(i)
-    case '{ ($i: String).toString } => astParse(i)
+    
     // TODO .toInt should not have a cast, probably should rely on SQL auto conversion
     case '{ ($str: String).toInt } => Infix(List("CAST(", " AS Int)"), List(astParse(str)), true, Quat.Value)
     // TODO not sure how I want to do this on an SQL level. Maybe implement using SQL function containers since
     // they should be more dialect-portable then just infix
     case '{ ($str: String).length } => Infix(List("Len(",")"), List(astParse(str)), true, Quat.Value)
 
+
+    //String Operations Cases
+
+    //+
     case NamedOp1(left, "+", right) if is[String](left) || is[String](right) =>
+      Console.println("String addition found");
       BinaryOperation(astParse(left), StringOperator.+, astParse(right))
+
+    //toString
+    case '{ ($i: String).toString } => astParse(i)
+
+    //toUpperCase
+    case '{ ($str:String).toUpperCase() } =>
+      Console.println("String to uppercase found")
+      Infix(List("ToUpperCase(", ")"), List(astParse(str)), true, Quat.Value)
+
+    //toLowerCase
+    case '{ ($str:String).toLowerCase() } =>
+      Console.println("String to lowercase found")
+      Infix(List("ToLowerCase(", ")"), List(astParse(str)), true, Quat.Value)
+
+    //toLong
+
+    //startsWith
+
+    //split
+
+    
+
     
     // 1 + 1
     // Apply(Select(Lit(1), +), Lit(1))
     // Expr[_] => BinaryOperation
     case NumericOperation(binaryOperation) =>
+      Console.println("Numeric Operation");
       binaryOperation
   }
 
