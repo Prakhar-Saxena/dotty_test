@@ -1,19 +1,19 @@
-// package io.getquill
+package io.getquill
 
-// import scala.language.implicitConversions
-// import io.getquill.quoter.Dsl._
-// import io.getquill.quoter.QueryDsl._
-// import io.getquill.quoter.SchemaMeta
-// import io.getquill.quoter.QueryMeta
-// import io.getquill.quoter.InsertMeta
-// import io.getquill.parser.PrintMac
+import scala.language.implicitConversions
+import io.getquill.quoter.Dsl._
+import io.getquill.quoter.QueryDsl._
+import io.getquill.quoter.SchemaMeta
+import io.getquill.quoter.QueryMeta
+import io.getquill.quoter.InsertMeta
+import io.getquill.parser.PrintMac
 
-// object AdvTest {
-//   import io.getquill._
+object AdvTest {
+  import io.getquill._
 
 
 
-//   def main(args: Array[String]): Unit = {
+  def main(args: Array[String]): Unit = {
 
 //     //case class Person(id: Int, name: String, age: Int)
 //     //case class Address(street: String, zip: Int, personId: Int)
@@ -138,17 +138,17 @@
 //     // }
 //
 //     // ============ With Insert Meta ============
-//     {
-//       case class Person(id: Int, name: String)
-//       inline given personSchema: InsertMeta[Person] = insertMeta[Person](_.id)
-//       //PrintMac(personSchema)
-//       // TODO What if this is a val?
-//       inline def q = quote {
-//         query[Person].insertI(Person(1, "Joe"))
-//       }
-//       PrintMac(q)
-//       println( run(q) ) // hello
-//     }
+    {
+      case class Person(id: Int, name: String)
+      inline given personSchema: InsertMeta[Person] = insertMeta[Person](_.id)
+      //PrintMac(personSchema)
+      // TODO What if this is a val?
+      inline def q = quote {
+        query[Person].insert(Person(1, "Joe"))
+      }
+      PrintMac(q)
+      println( run(q) ) // hello    
+    }
 //     // TODO Exclude from Optional object (i.e and multiple excludes)
 //     // TODO Exclude from Insert meta with Insert Schema (i.e and multiple excludes)
 //     // TODO Exclude from Optional object Insert meta with Insert Schema (i.e and multiple excludes)
@@ -156,5 +156,5 @@
 //     // println(q.ast)
 //     //println( run(q) )
 
-//   }
-// }
+  }
+}
