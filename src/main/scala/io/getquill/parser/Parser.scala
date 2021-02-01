@@ -453,11 +453,19 @@ case class OperationsParser(root: Parser[Ast] = Parser.empty)(override implicit 
       Infix(List("ToLowerCase(", ")"), List(astParse(str)), true, Quat.Value)
 
     //toLong
+    case '{ ($str:String).toLong() } =>
+      Console.println("String toLong found")
+      Infix(List("ToLong(", ")"), List(astParse(str)), true, Quat.Value)
 
     //startsWith
+    case '{ ($str:String).startsWith() } =>
+      Console.println("String startsWith found")
+      Infix(List("StartsWith(", ")"), List(astParse(str)), true, Quat.Value)
 
     //split
-
+    case '{ ($str:String).split() } =>
+      Console.println("String split found")
+      Infix(List("Split(", ")"), List(astParse(str)), true, Quat.Value)
     
 
     
