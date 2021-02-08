@@ -33,9 +33,9 @@ This document describes software requirements for the implementation of the open
 
 Note: The GIF example uses Eclipse, which shows compilation messages to the user.
 
-# Quotation
+# Functional Requirements - Quotation
 
-## Introduction
+## R1 - Introduction
 
 The QDSL allows the user to write plain Scala code, leveraging Scala's syntax and type system. Quotations are created using the `quote` method and can contain any excerpt of code that uses supported operations. To create quotations, first create a context instance. Please see the [context](#contexts) section for more details on the different context available.
 
@@ -111,7 +111,7 @@ val q = quote {
 }
 ```
 
-## Compile-time quotations
+## R2 - Compile-time quotations
 
 Quotations are both compile-time and runtime values. Quill uses a type refinement to store the quotation's AST as an annotation available at compile-time and the `q.ast` method exposes the AST as runtime value.
 
@@ -137,11 +137,11 @@ ctx.run(query[Circle].map(_.radius))
 // SELECT r.radius FROM Circle r
 ```
 
-## Bindings
+## R3 - Bindings
 
 Quotations are designed to be self-contained, without references to runtime values outside their scope. There are two mechanisms to explicitly bind runtime values to a quotation execution.
 
-### Lifted values
+### R3.1 - Lifted values
 
 A runtime value can be lifted to a quotation through the method `lift`:
 
@@ -152,7 +152,7 @@ def biggerThan(i: Float) = quote {
 ctx.run(biggerThan(10)) // SELECT r.radius FROM Circle r WHERE r.radius > ?
 ```
 
-### Lifted queries
+### R3.2 - Lifted queries
 
 A `Iterable` instance can be lifted as a `Query`. There are two main usages for lifted queries:
 
@@ -175,7 +175,7 @@ ctx.run(insert(List(Circle(1.1F), Circle(1.2F))))
 // INSERT INTO Circle (radius) VALUES (?)
 ```
 
-## Schema
+## R4 - Schema
 
 The database schema is represented by case classes. By default, quill uses the class and field names as the database identifiers:
 
@@ -189,7 +189,7 @@ val q = quote {
 ctx.run(q) // SELECT c.radius FROM Circle c WHERE c.radius > 1
 ```
 
-### Schema customization
+### R4.1 - Schema customization
 
 Alternatively, the identifiers can be customized:
 
@@ -226,7 +226,7 @@ object schema {
 }
 ```
 
-### Database-generated values
+### R4.2 - Database-generated values
 
 #### returningGenerated
 
@@ -320,7 +320,7 @@ val deleted = ctx.run(q) //: List[(Int, String)]
 
 #### Customization
 
-##### Postgres
+### R4.3 - Postgres
 
 The `returning` and `returningGenerated` methods also support arithmetic operations, SQL UDFs and 
 even entire queries. These are inserted directly into the SQL `RETURNING` clause.
@@ -372,7 +372,7 @@ recommended that you use aggregators such as `max` or `min`inside of quill retur
 In the case that this is impossible (e.g. when using Postgres booleans), you can use the `.value` method: 
 `q.returning(r => query[Supplier].filter(s => s.sku == r.sku).map(_.id).value)`.
 
-##### SQL Server
+### R4.4 -  SQL Server
 
 The `returning` and `returningGenerated` methods are more restricted when using SQL Server; they only support 
 arithmetic operations. These are inserted directly into the SQL `OUTPUT INSERTED.*` or `OUTPUT DELETED.*` clauses.
@@ -410,7 +410,7 @@ val updated = ctx.run(q)
 // DELETE FROM Product OUTPUT DELETED.id, DELETED.description
 ```
 
-### Embedded case classes
+### R4.5 - Embedded case classes
 
 Quill supports nested `Embedded` case classes:
 
@@ -442,7 +442,7 @@ ctx.run(q)
 // SELECT x.id, x.name, x.homePhone, x.homeAddress, x.workPhone, x.workAddress FROM Person x
 ```
 
-## Queries
+## R5 - Query Parser
 
 The overall abstraction of quill queries uses database tables as if they were in-memory collections. Scala for-comprehensions provide syntactic sugar to deal with these kinds of monadic operations:
 
@@ -467,7 +467,7 @@ Quill normalizes the quotation and translates the monadic joins to applicative j
 
 Any of the following features can be used together with the others and/or within a for-comprehension:
 
-### filter
+### R5.1 - filter
 ```scala
 val q = quote {
   query[Person].filter(p => p.age > 18)
@@ -477,7 +477,7 @@ ctx.run(q)
 // SELECT p.id, p.name, p.age FROM Person p WHERE p.age > 18
 ```
 
-### map
+### R5.2 - map
 ```scala
 val q = quote {
   query[Person].map(p => p.name)
@@ -487,7 +487,7 @@ ctx.run(q)
 // SELECT p.name FROM Person p
 ```
 
-### flatMap
+### R5.3 - flatMap
 ```scala
 val q = quote {
   query[Person].filter(p => p.age > 18).flatMap(p => query[Contact].filter(c => c.personId == p.id))
@@ -497,7 +497,7 @@ ctx.run(q)
 // SELECT c.personId, c.phone FROM Person p, Contact c WHERE (p.age > 18) AND (c.personId = p.id)
 ```
 
-### concatMap
+### R5.4 - concatMap
 ```scala
 // similar to `flatMap` but for transformations that return a traversable instead of `Query`
 
@@ -509,7 +509,7 @@ ctx.run(q)
 // SELECT UNNEST(SPLIT(p.name, " ")) FROM Person p
 ```
 
-### sortBy
+### R5.5 - sortBy
 ```scala
 val q1 = quote {
   query[Person].sortBy(p => p.age)
@@ -533,7 +533,7 @@ ctx.run(q3)
 // SELECT p.id, p.name, p.age FROM Person p ORDER BY p.name ASC, p.age DESC
 ```
 
-### drop/take
+### R5.6 - drop/take
 
 ```scala
 val q = quote {
@@ -544,7 +544,7 @@ ctx.run(q)
 // SELECT x.id, x.name, x.age FROM Person x LIMIT 1 OFFSET 2
 ```
 
-### groupBy
+### R5.7 - groupBy
 ```scala
 val q = quote {
   query[Person].groupBy(p => p.age).map {
@@ -557,7 +557,7 @@ ctx.run(q)
 // SELECT p.age, COUNT(*) FROM Person p GROUP BY p.age
 ```
 
-### union
+### R5.8 - union
 ```scala
 val q = quote {
   query[Person].filter(p => p.age > 18).union(query[Person].filter(p => p.age > 60))
@@ -568,7 +568,7 @@ ctx.run(q)
 // UNION SELECT id, name, age FROM Person p1 WHERE p1.age > 60) x
 ```
 
-### unionAll/++
+### R5.9 - unionAll/++
 ```scala
 val q = quote {
   query[Person].filter(p => p.age > 18).unionAll(query[Person].filter(p => p.age > 60))
@@ -587,7 +587,7 @@ ctx.run(q2)
 // UNION ALL SELECT id, name, age FROM Person p1 WHERE p1.age > 60) x
 ```
 
-### aggregation
+### R5.10 - aggregation
 ```scala
 val r = quote {
   query[Person].map(p => p.age)
@@ -600,7 +600,7 @@ ctx.run(r.sum) // SELECT SUM(p.age) FROM Person p
 ctx.run(r.size) // SELECT COUNT(p.age) FROM Person p
 ```
 
-### isEmpty/nonEmpty
+### R5.11 - isEmpty/nonEmpty
 ```scala
 val q = quote {
   query[Person].filter{ p1 =>
@@ -623,7 +623,7 @@ ctx.run(q2)
 // EXISTS (SELECT * FROM Person p2 WHERE (p2.id <> p1.id) AND (p2.age = p1.age))
 ```
 
-### contains
+### R5.12 - contains
 ```scala
 val q = quote {
   query[Person].filter(p => liftQuery(Set(1, 2)).contains(p.id))
@@ -650,7 +650,7 @@ ctx.run(q2)
 // SELECT p.id, p.name, p.age FROM Person p WHERE p.id IN (SELECT p1.* FROM Person p1 WHERE EXISTS (SELECT c.* FROM Contact c WHERE c.personId = p1.id))
 ```
 
-### distinct
+### R5.13 - distinct
 ```scala
 val q = quote {
   query[Person].map(p => p.age).distinct
@@ -660,7 +660,7 @@ ctx.run(q)
 // SELECT DISTINCT p.age FROM Person p
 ```
 
-### nested
+### R5.14 - nested
 ```scala
 val q = quote {
   query[Person].filter(p => p.name == "John").nested.map(p => p.age)
@@ -670,7 +670,7 @@ ctx.run(q)
 // SELECT p.age FROM (SELECT p.age FROM Person p WHERE p.name = 'John') p
 ```
 
-### joins
+### R5.15 - joins
 Joins are arguably the largest source of complexity in most SQL queries.
 Quill offers a few different syntaxes so you can choose the right one for your use-case!
 
@@ -809,7 +809,7 @@ run(q) //: List[(Person, Address, Company)]
 Well that looks nice but wait! What If I need to inner, **and** outer join lots of tables nicely?
 No worries, flat-joins are here to help!
 
-### flat joins
+### R5.16 - flat joins
 
 Flat Joins give you the best of both worlds! In the monadic syntax, you can use both inner joins,
 and left-outer joins together without any of that pesky nesting.
@@ -913,7 +913,7 @@ Also, note that not all Option operations are available on outer-joined tables (
 only a specific subset. This is mostly due to the inherent limitations of SQL itself. For more information, see the
 'Optional Tables' section.
 
-### Optionals / Nullable Fields
+### R5.17 - Optionals / Nullable Fields
 
 > Note that the behavior of Optionals has recently changed to include stricter null-checks. See the [orNull / getOrNull](#ornull--getornull) section for more details.
 
@@ -1151,7 +1151,7 @@ ctx.run(a)
 // SELECT CASE WHEN p.name IS NOT NULL AND CASE WHEN p.name = 'Joe' THEN 'foo' ELSE 'bar' END IS NOT NULL THEN CASE WHEN p.name = 'Joe' THEN 'foo' ELSE 'bar' END ELSE 'baz' END FROM Person p
 ```
 
-### equals
+### R5.18 - equals
 
 The `==`, `!=`, and `.equals` methods can be used to compare regular types as well Option types in a scala-idiomatic way.
 That is to say, either `T == T` or `Option[T] == Option[T]` is supported and the following "truth-table" is observed:
@@ -1274,7 +1274,7 @@ ctx.run(union)
 // ) x
 ```
 
-### Ad-Hoc Case Classes
+### R5.19 - Ad-Hoc Case Classes
 
 Case Classes can also be used inside quotations as output values:
 
@@ -1322,31 +1322,11 @@ ctx.run(q)
     3. Using a companion object's apply method explicitly: `Person.apply("Joe", "Bloggs")`
 4. Any custom logic in a constructor/apply-method of an Ad-Hoc case class will not be invoked when it is 'constructed' inside a quotation. To construct an Ad-Hoc case class with custom logic inside a quotation, you can use a quoted method.
 
-## Query probing
-
-Query probing validates queries against the database at compile time, failing the compilation if it is not valid. The query validation does not alter the database state.
-
-This feature is disabled by default. To enable it, mix the `QueryProbing` trait to the database configuration:
-
-```
-object myContext extends YourContextType with QueryProbing
-```
-
-The context must be created in a separate compilation unit in order to be loaded at compile time. Please use [this guide](http://www.scala-sbt.org/0.13/docs/Macro-Projects.html) that explains how to create a separate compilation unit for macros, that also serves to the purpose of defining a query-probing-capable context. `context` could be used instead of `macros` as the name of the separate compilation unit.
-
-The configurations correspondent to the config key must be available at compile time. You can achieve it by adding this line to your project settings:
-
-```
-unmanagedClasspath in Compile += baseDirectory.value / "src" / "main" / "resources"
-```
-
-If your project doesn't have a standard layout, e.g. a play project, you should configure the path to point to the folder that contains your config file.
-
-## Actions
+## R6 - Action Parser
 
 Database actions are defined using quotations as well. These actions don't have a collection-like API but rather a custom DSL to express inserts, deletes, and updates.
 
-### insert
+### R6.1 - insert
 
 ```scala
 val a = quote(query[Contact].insert(lift(Contact(999, "+1510488988"))))
@@ -1366,7 +1346,7 @@ ctx.run(a)
 // INSERT INTO Contact (personId,phone) VALUES (?, ?)
 ```
 
-### batch insert
+### R6.2 - batch insert
 ```scala
 val a = quote {
   liftQuery(List(Person(0, "John", 31),Person(2, "name2", 32))).foreach(e => query[Person].insert(e))
@@ -1376,7 +1356,7 @@ ctx.run(a) //: List[Long] size = 2. Contains 1 @ positions, where row was insert
 // INSERT INTO Person (id,name,age) VALUES (?, ?, ?)
 ```
 
-### update
+### R6.3 - update
 ```scala
 val a = quote {
   query[Person].filter(_.id == 999).update(lift(Person(999, "John", 22)))
@@ -1408,7 +1388,7 @@ ctx.run(a)
 // UPDATE Person SET age = (age + 1) WHERE id = ?
 ```
 
-### batch update
+### R6.4 - batch update
 
 ```scala
 val a = quote {
@@ -1421,7 +1401,7 @@ ctx.run(a) // : List[Long] size = 2. Contains 1 @ positions, where row was inser
 // UPDATE Person SET name = ?, age = ? WHERE id = ?
 ```
 
-### delete
+### R6.5 - delete
 ```scala
 val a = quote {
   query[Person].filter(p => p.name == "").delete
@@ -1431,7 +1411,7 @@ ctx.run(a) // = Long the number of rows deleted
 // DELETE FROM Person WHERE name = ''
 ```
 
-### insert or update (upsert, conflict)
+### R6.6 - insert or update (upsert, conflict)
 
 Upsert is supported by Postgres, SQLite, MySQL and H2 `onConflictIgnore` only (since v1.4.200 in PostgreSQL compatibility mode)
 
@@ -1519,424 +1499,7 @@ val a = quote {
 
 // INSERT INTO Product (id,sku) VALUES (1, 10) ON DUPLICATE KEY UPDATE sku = (sku + VALUES(sku))
 ```
-
-## Printing Queries
-
-The `translate` method is used to convert a Quill query into a string which can then be printed.
-
-```scala
-val str = ctx.translate(query[Person])
-println(str)
-// SELECT x.id, x.name, x.age FROM Person x
-```
-
-Insert queries can also be printed:
-
-```scala
-val str = ctx.translate(query[Person].insert(lift(Person(0, "Joe", 45))))
-println(str)
-// INSERT INTO Person (id,name,age) VALUES (0, 'Joe', 45)
-```
-
-As well as batch insertions:
-
-```scala
-val q = quote {
-  liftQuery(List(Person(0, "Joe",44), Person(1, "Jack",45)))
-    .foreach(e => query[Person].insert(e))
-}
-val strs: List[String] = ctx.translate(q)
-strs.map(println)
-// INSERT INTO Person (id, name,age) VALUES (0, 'Joe', 44)
-// INSERT INTO Person (id, name,age) VALUES (1, 'Jack', 45)
-```
-
-The `translate` method is available in every Quill context as well as the Cassandra and OrientDB contexts,
-the latter two, however, do not support Insert and Batch Insert query printing.
-
-## IO Monad
-
-Quill provides an IO monad that allows the user to express multiple computations and execute them separately. This mechanism is also known as a free monad, which provides a way of expressing computations as referentially-transparent values and isolates the unsafe IO operations into a single operation. For instance:
-
-```scala
-// this code using Future
-
-case class Person(id: Int, name: String, age: Int)
-
-val p = Person(0, "John", 22)
-ctx.run(query[Person].insert(lift(p))).flatMap { _ =>
-  ctx.run(query[Person])
-}
-
-// isn't referentially transparent because if you refactor the second database 
-// interaction into a value, the result will be different:
-
-val allPeople = ctx.run(query[Person])
-ctx.run(query[Person].insert(lift(p))).flatMap { _ =>
-  allPeople
-}
-
-// this happens because `ctx.run` executes the side-effect (database IO) immediately
-```
-
-```scala
-// The IO monad doesn't perform IO immediately, so both computations:
-
-val p = Person(0, "John", 22)
-
-val a =
-  ctx.runIO(query[Person].insert(lift(p))).flatMap { _ =>
-    ctx.runIO(query[Person])
-  }
-
-
-val allPeople = ctx.runIO(query[Person])
-
-val b =
-  ctx.runIO(query[Person].insert(lift(p))).flatMap { _ =>
-    allPeople
-  }
-
-// produce the same result when executed
-
-performIO(a) == performIO(b)
-```
-
-The IO monad has an interface similar to `Future`; please refer to [the class](https://github.com/getquill/quill/blob/master/quill-core/src/main/scala/io/getquill/monad/IOMonad.scala#L39) for more information regarding the available operations.
-
-The return type of `performIO` varies according to the context. For instance, async contexts return `Future`s while JDBC returns values synchronously.
-
-***NOTE***: Avoid using the variable name `io` since it conflicts with Quill's package `io.getquill`, otherwise you will get the following error.
-```
-recursive value io needs type
-```
-
-### IO Monad and transactions
-
-`IO` also provides the `transactional` method that delimits a transaction:
-
-```scala
-val a =
-  ctx.runIO(query[Person].insert(lift(p))).flatMap { _ =>
-    ctx.runIO(query[Person])
-  }
-
-performIO(a.transactional) // note: transactional can be used outside of `performIO`
-```
-
-### Getting a ResultSet
-
-Quill JDBC Contexts allow you to use `prepare` in order to get a low-level `ResultSet` that is useful
-for interacting with legacy APIs. This function  returns a `f: (Connection) => (PreparedStatement)` 
-closure as opposed to a `PreparedStatement` in order to guarantee that JDBC Exceptions are not
-thrown until you can wrap them into the appropriate Exception-handling mechanism (e.g.
-`try`/`catch`, `Try` etc...).
-
-```scala
-val q = quote {
-  query[Product].filter(_.id == 1)
-}
-val preparer: (Connection) => (PreparedStatement)  = ctx.prepare(q)
-// SELECT x1.id, x1.description, x1.sku FROM Product x1 WHERE x1.id = 1
-
-// Use ugly stateful code, bracketed effects, or try-with-resources here:
-var preparedStatement: PreparedStatement = _
-var resultSet: ResultSet = _
-
-try {
-  preparedStatement = preparer(myCustomDataSource.getConnection)
-  resultSet = preparedStatement.executeQuery()
-} catch {
-  case e: Exception =>
-    // Close the preparedStatement and catch possible exceptions
-    // Close the resultSet and catch possible exceptions
-}
-```
-
-The `prepare` function can also be used with `insert`, and `update` queries.
-
-```scala
-val q = quote {
-  query[Product].insert(lift(Product(1, "Desc", 123))
-}
-val preparer: (Connection) => (PreparedStatement)  = ctx.prepare(q)
-// INSERT INTO Product (id,description,sku) VALUES (?, ?, ?)
-```
-
-As well as with batch queries.
-> Make sure to first quote your batch query and then pass the result into the `prepare` function
-(as is done in the example below) or the Scala compiler may not type the output correctly
-[#1518](https://github.com/getquill/quill/issues/1518).
-
-```scala
-val q = quote {
-  liftQuery(products).foreach(e => query[Product].insert(e))
-}
-val preparers: Connection => List[PreparedStatement] = ctx.prepare(q)
-val preparedStatement: List[PreparedStatement] = preparers(jdbcConf.dataSource.getConnection)
-```
-
-
-### Effect tracking
-
-The IO monad tracks the effects that a computation performs in its second type parameter:
-
-```scala
-val a: IO[ctx.RunQueryResult[Person], Effect.Write with Effect.Read] =
-  ctx.runIO(query[Person].insert(lift(p))).flatMap { _ =>
-    ctx.runIO(query[Person])
-  }
-```
-
-This mechanism is useful to limit the kind of operations that can be performed. See this [blog post](http://danielwestheide.com/blog/2015/06/28/put-your-writes-where-your-master-is-compile-time-restriction-of-slick-effect-types.html) as an example.
-
-## Implicit query
-
-Quill provides implicit conversions from case class companion objects to `query[T]` through an additional trait:
-
-```scala
-val ctx = new SqlMirrorContext(MirrorSqlDialect, Literal) with ImplicitQuery
-
-import ctx._
-
-val q = quote {
-  for {
-    p <- Person if(p.id == 999)
-    c <- Contact if(c.personId == p.id)
-  } yield {
-    (p.name, c.phone)
-  }
-}
-
-ctx.run(q)
-// SELECT p.name, c.phone FROM Person p, Contact c WHERE (p.id = 999) AND (c.personId = p.id)
-```
-
-Note the usage of `Person` and `Contact` instead of `query[Person]` and `query[Contact]`.
-
-## SQL-specific operations
-
-Some operations are SQL-specific and not provided with the generic quotation mechanism. The SQL contexts provide implicit classes for this kind of operation:
-
-```scala
-val ctx = new SqlMirrorContext(MirrorSqlDialect, Literal)
-import ctx._
-```
-
-### like
-
-```scala
-val q = quote {
-  query[Person].filter(p => p.name like "%John%")
-}
-ctx.run(q)
-// SELECT p.id, p.name, p.age FROM Person p WHERE p.name like '%John%'
-```
-
-## SQL-specific encoding
-
-### Arrays
-
-Quill provides SQL Arrays support. In Scala we represent them as any collection that implements `Seq`:
-```scala
-import java.util.Date
-
-case class Book(id: Int, notes: List[String], pages: Vector[Int], history: Seq[Date])
-
-ctx.run(query[Book])
-// SELECT x.id, x.notes, x.pages, x.history FROM Book x
-```
-Note that not all drivers/databases provides such feature hence only `PostgresJdbcContext` and
-`PostgresAsyncContext` support SQL Arrays.
-
-
-## Cassandra-specific encoding
-
-```scala
-val ctx = new CassandraMirrorContext(Literal)
-import ctx._
-```
-
-### Collections
-
-The Cassandra context provides List, Set, and Map encoding:
-
-```scala
-
-case class Book(id: Int, notes: Set[String], pages: List[Int], history: Map[Int, Boolean])
-
-ctx.run(query[Book])
-// SELECT id, notes, pages, history FROM Book
-```
-
-### User-Defined Types
-
-The cassandra context provides encoding of UDT (user-defined types).
-```scala
-
-case class Name(firstName: String, lastName: String) extends Udt
-```
-
-To encode the UDT and bind it into the query (insert/update queries), the context needs to retrieve UDT metadata from
-the cluster object. By default, the context looks for UDT metadata within the currently logged keyspace, but it's also possible to specify a
-concrete keyspace with `udtMeta`:
-
-```scala
-implicit val nameMeta = udtMeta[Name]("keyspace2.my_name")
-```
-When a keyspace is not set in `udtMeta` then the currently logged one is used.
-
-Since it's possible to create a context without
-specifying a keyspace, (e.g. the keyspace parameter is null and the session is not bound to any keyspace), the UDT metadata will be
-resolved throughout the entire cluster.
-
-It is also possible to rename UDT columns with `udtMeta`:
-
-```scala
-implicit val nameMeta = udtMeta[Name]("name", _.firstName -> "first", _.lastName -> "last")
-```
-
-## Cassandra-specific operations
-
-The cassandra context also provides a few additional operations:
-
-### allowFiltering
-```scala
-val q = quote {
-  query[Person].filter(p => p.age > 10).allowFiltering
-}
-ctx.run(q)
-// SELECT id, name, age FROM Person WHERE age > 10 ALLOW FILTERING
-```
-
-### ifNotExists
-```scala
-val q = quote {
-  query[Person].insert(_.age -> 10, _.name -> "John").ifNotExists
-}
-ctx.run(q)
-// INSERT INTO Person (age,name) VALUES (10, 'John') IF NOT EXISTS
-```
-
-### ifExists
-```scala
-val q = quote {
-  query[Person].filter(p => p.name == "John").delete.ifExists
-}
-ctx.run(q)
-// DELETE FROM Person WHERE name = 'John' IF EXISTS
-```
-
-### usingTimestamp
-```scala
-val q1 = quote {
-  query[Person].insert(_.age -> 10, _.name -> "John").usingTimestamp(99)
-}
-ctx.run(q1)
-// INSERT INTO Person (age,name) VALUES (10, 'John') USING TIMESTAMP 99
-
-val q2 = quote {
-  query[Person].usingTimestamp(99).update(_.age -> 10)
-}
-ctx.run(q2)
-// UPDATE Person USING TIMESTAMP 99 SET age = 10
-```
-
-### usingTtl
-```scala
-val q1 = quote {
-  query[Person].insert(_.age -> 10, _.name -> "John").usingTtl(11)
-}
-ctx.run(q1)
-// INSERT INTO Person (age,name) VALUES (10, 'John') USING TTL 11
-
-val q2 = quote {
-  query[Person].usingTtl(11).update(_.age -> 10)
-}
-ctx.run(q2)
-// UPDATE Person USING TTL 11 SET age = 10
-
-val q3 = quote {
-  query[Person].usingTtl(11).filter(_.name == "John").delete
-}
-ctx.run(q3)  
-// DELETE FROM Person USING TTL 11 WHERE name = 'John'
-```
-
-### using
-```scala
-val q1 = quote {
-  query[Person].insert(_.age -> 10, _.name -> "John").using(ts = 99, ttl = 11)
-}
-ctx.run(q1)
-// INSERT INTO Person (age,name) VALUES (10, 'John') USING TIMESTAMP 99 AND TTL 11
-
-val q2 = quote {
-  query[Person].using(ts = 99, ttl = 11).update(_.age -> 10)
-}
-ctx.run(q2)
-// UPDATE Person USING TIMESTAMP 99 AND TTL 11 SET age = 10
-
-val q3 = quote {
-  query[Person].using(ts = 99, ttl = 11).filter(_.name == "John").delete
-}
-ctx.run(q3)
-// DELETE FROM Person USING TIMESTAMP 99 AND TTL 11 WHERE name = 'John'
-```
-
-### ifCond
-```scala
-val q1 = quote {
-  query[Person].update(_.age -> 10).ifCond(_.name == "John")
-}
-ctx.run(q1)
-// UPDATE Person SET age = 10 IF name = 'John'
-
-val q2 = quote {
-  query[Person].filter(_.name == "John").delete.ifCond(_.age == 10)
-}
-ctx.run(q2)
-// DELETE FROM Person WHERE name = 'John' IF age = 10
-```
-
-### delete column
-```scala
-val q = quote {
-  query[Person].map(p => p.age).delete
-}
-ctx.run(q)
-// DELETE p.age FROM Person
-```
-
-### list.contains / set.contains
-requires `allowFiltering`
-```scala
-val q = quote {
-  query[Book].filter(p => p.pages.contains(25)).allowFiltering
-}
-ctx.run(q)
-// SELECT id, notes, pages, history FROM Book WHERE pages CONTAINS 25 ALLOW FILTERING
-```
-
-### map.contains
-requires `allowFiltering`
-```scala
-val q = quote {
-  query[Book].filter(p => p.history.contains(12)).allowFiltering
-}
-ctx.run(q)
-// SELECT id, notes, pages, history FROM book WHERE history CONTAINS 12 ALLOW FILTERING
-```
-
-### map.containsValue
-requires `allowFiltering`
-```scala
-val q = quote {
-  query[Book].filter(p => p.history.containsValue(true)).allowFiltering
-}
-ctx.run(q)
-// SELECT id, notes, pages, history FROM book WHERE history CONTAINS true ALLOW FILTERING
-```
+## ---ADD REMAINING PARSERS HERE---
 
 ## Dynamic queries
 
@@ -2058,7 +1621,7 @@ dynamicQuery[Person].insertValue(p)
 dynamicQuery[Person].filter(_.id == 1).updateValue(p)
 ```
 
-# Extending quill
+# Extending quill - ASK ALEX
 
 ## Infix
 
@@ -2323,7 +1886,7 @@ ctx.run(q)
 // SELECT u.id, u.name FROM User u WHERE (u.id = 1)
 ```
 
-## Meta DSL
+## Meta DSL - ASK ALEX
 
 The meta DSL allows the user to customize how Quill handles the expansion and execution of quotations through implicit meta instances.
 
@@ -2497,7 +2060,7 @@ val results = run(peopleOlderThan(22, liftQuery(dataset)))
 ```
 
 
-## Spark Integration
+## Spark Integration - ASK ALEX
 
 Quill provides a fully type-safe way to use Spark's highly-optimized SQL engine. It's an alternative to `Dataset`'s weakly-typed API.
 
@@ -3070,7 +2633,7 @@ ctx.dataSource.portNumber=1521
 ctx.dataSource.serverName=host
 ```
 
-## NDBC Context
+## NDBC Context 
 
 Async support via [NDBC driver](https://ndbc.io/) is available with Postgres database.
 
@@ -3528,55 +3091,6 @@ ctx.username=root
 ctx.password=root
 ```
 
-# Code Generation
-
-Quill now has a highly customizable code generator. Currently, it only supports JDBC but it will soon
-be extended to other contexts. With a minimal amount of configuration, the code generator takes schemas like this:
-
-```sql
--- Using schema 'public'
-
-create table public.Person (
-  id int primary key auto_increment,
-  first_name varchar(255),
-  last_name varchar(255),
-  age int not null
-);
-
-create table public.Address (
-  person_fk int not null,
-  street varchar(255),
-  zip int
-);
-```
-
-Producing objects like this:
-
-```scala
-// src/main/scala/com/my/project/public/Person.scala
-package com.my.project.public
-  
-case class Person(id: Int, firstName: Option[String], lastName: Option[String], age: Int)
-```
-
-```scala
-// src/main/scala/com/my/project/public/Address.scala
-package com.my.project.public
-  
-case class Address(personFk: Int, street: Option[String], zip: Option[Int])
-```
-
-Have a look at the [CODEGEN.md](https://github.com/getquill/quill/blob/master/CODEGEN.md) manual page for more details.
-
-#### sbt dependencies
-
-```
-libraryDependencies ++= Seq(
-  "io.getquill" %% "quill-codegen-jdbc" % "3.6.0-SNAPSHOT"
-)
-```
-
-
 # Logging
 
 ## Compile-time
@@ -3691,6 +3205,15 @@ See the [LICENSE](https://github.com/getquill/quill/blob/master/LICENSE.txt) fil
 - @godenji
 - @lvicentesanchez
 - @mxl
+
+#Contributors
+
+- @Prakhar-Saxena
+- @Aeizan
+- @hsl39
+- @jsmills99
+- @PocoLoco456
+- @wordisb8nd
 
 You can notify all current maintainers using the handle `@getquill/maintainers`.
 
