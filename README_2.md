@@ -13,7 +13,16 @@
 
 # What is Quill?
 
-Quill provides a Quoted Domain Specific Language ([QDSL](http://homepages.inf.ed.ac.uk/wadler/papers/qdsl/qdsl.pdf)) to express queries in Scala and execute them in a target language. The library's core is designed to support multiple target languages, currently featuring specializations for Structured Query Language ([SQL](https://en.wikipedia.org/wiki/SQL)) and Cassandra Query Language ([CQL](https://cassandra.apache.org/doc/latest/cql/)).
+Quill is a Language Integrated Query (LINQ) system written in the Scala programming language. Its goal is to provide a flexible, composable, and user-friendly DSL to access a variety of databases, both traditional and distributed. Quill creates an abstraction layer above traditional query languages (most notably SQL) and provides features such as polymorphism and encapsulation to enhance the query paradigm. Such features have become increasingly necessary as corporate SQL codebases have vastly grown in complexity.
+
+Essentially, Quill provides a Quoted Domain Specific Language ([QDSL](http://homepages.inf.ed.ac.uk/wadler/papers/qdsl/qdsl.pdf)) to express queries in Scala and execute them in a target language. The library's core is designed to support multiple target languages, currently featuring specializations for Structured Query Language ([SQL](https://en.wikipedia.org/wiki/SQL)) and Cassandra Query Language ([CQL](https://cassandra.apache.org/doc/latest/cql/)).
+
+Traditionally, any abstraction of SQL into Object-Oriented paradigms has fallen to the domain of Option-Relational Mapping (ORM) Systems. Unfortunately, these systems suffer from intractable impedance-mismatch issues. These issues make them difficult to use and unfit for future-facing use cases such as Big Data, where fine-grained control over joins and execution frequency is a sine-qua-non. In response to these issues, Quill offers immunity to traditional impedance-mismatch problems as well as the ability to generate SQL queries during compile-time so that the developer is in full control of the entire data retrieval process. This capability is based upon Philip Wadler's ground-breaking work published in "A Practical Theory of Language Integrated Query."
+
+As the Scala language, upon which Quill is written, enters into its third major iteration (currently under the pseudonym "Dotty"), many of the language features are being reimagined from the ground up. This undertaking by the EPFL institute in Lausanne, Switzerland is rapidly approaching a commercial-grade release of Scala 3.0. Due to the differences in the meta-programming system of this new language, many of the internals of Quill are rewritten in an entirely new paradigm. This presented some challenges and many opportunities. Once it is extended to Scala 3, Quill has many new capabilities including the ability to share transpiled code with normal application code and the ability to recursively generate queries. This allows Quill to express advanced business-logic constructs (during compile-time!) that until now have been difficult or even impossible to express on the JVM!
+
+This document describes software requirements for the implementation of the open-source library, quill, stylised as ScQuill. The initial release will contain sufficient information to allow a developer to translate the requirements into code with clarity and relative ease.
+
 
 ![example](https://raw.githubusercontent.com/getquill/quill/master/example.gif)
 
