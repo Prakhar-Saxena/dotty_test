@@ -6,18 +6,17 @@ import io.getquill.parser._
 
 object HarrisonRun {
   def main(args: Array[String]):Unit = {
+
     /*
     val x : Int = 6
     val y : Int = 5
     */
 
-    val x : String = "h"
+    val x : String = "h h"
     val y : String = "o"
 
-    val output = quote{ x.toLong }//compileeee
-    println(output)
-
-    
+    //val output = quote{ x.toString }//compileeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+    //println(output)
 
   }
 }

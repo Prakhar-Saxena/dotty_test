@@ -443,31 +443,37 @@ case class OperationsParser(root: Parser[Ast] = Parser.empty)(override implicit 
     case '{ ($i: String).toString } => astParse(i)
 
     //toUpperCase
-    case '{ ($str:String).toUpperCase() } =>
+    case '{ ($str:String).toUpperCase } =>
       Console.println("String to uppercase found")
-      Infix(List("ToUpperCase(", ")"), List(astParse(str)), true, Quat.Value)
+      UnaryOperation(StringOperator.toUpperCase, astParse(str))
 
+      /*
     //toLowerCase
-    case '{ ($str:String).toLowerCase() } =>
+    case '{ ($str:String).toLowerCase } =>
       Console.println("String to lowercase found")
-      Infix(List("ToLowerCase(", ")"), List(astParse(str)), true, Quat.Value)
+      BinaryOperation(astParse(left), StringOperator.toLowerCase, astParse(right))
 
     //toLong
-    case '{ ($str:String).toLong() } =>
+    case '{ ($str:String).toLong } =>
       Console.println("String toLong found")
-      Infix(List("ToLong(", ")"), List(astParse(str)), true, Quat.Value)
+      BinaryOperation(astParse(left), StringOperator.toLong, astParse(right))
 
     //startsWith
-    case '{ ($str:String).startsWith() } =>
+    case '{ ($str:String).startsWith } =>
       Console.println("String startsWith found")
-      Infix(List("StartsWith(", ")"), List(astParse(str)), true, Quat.Value)
-
+      BinaryOperation(astParse(left), StringOperator.startsWith, astParse(right))
+    */
     //split
-    case '{ ($str:String).split() } =>
-      Console.println("String split found")
-      Infix(List("Split(", ")"), List(astParse(str)), true, Quat.Value)
+    case '{ ($left:String).split($right:String) } =>
+      //Console.println("String split found")
+      BinaryOperation(astParse(left), StringOperator.split, astParse(right))
     
 
+    /*
+    //SET Operations
+    case '{ ($set:String).contains() } =>
+      Console.printl("Wow you actually did it!")
+    */
     
     // 1 + 1
     // Apply(Select(Lit(1), +), Lit(1))
