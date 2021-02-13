@@ -15,8 +15,8 @@ object HarrisonRun {
     val x : String = "h h"
     val y : String = "o"
 
-    //val output = quote{ x.toString }//compileeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-    //println(output)
+    val output = quote{ x.split(" ") }//compileeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+    println(output)
 
   }
 }

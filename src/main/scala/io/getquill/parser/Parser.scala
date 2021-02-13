@@ -447,22 +447,21 @@ case class OperationsParser(root: Parser[Ast] = Parser.empty)(override implicit 
       Console.println("String to uppercase found")
       UnaryOperation(StringOperator.toUpperCase, astParse(str))
 
-      /*
     //toLowerCase
     case '{ ($str:String).toLowerCase } =>
       Console.println("String to lowercase found")
-      BinaryOperation(astParse(left), StringOperator.toLowerCase, astParse(right))
+      UnaryOperation(StringOperator.toLowerCase, astParse(str))
 
     //toLong
     case '{ ($str:String).toLong } =>
       Console.println("String toLong found")
-      BinaryOperation(astParse(left), StringOperator.toLong, astParse(right))
+      UnaryOperation(StringOperator.toLong, astParse(str))
 
     //startsWith
-    case '{ ($str:String).startsWith } =>
+    case '{ ($left:String).startsWith($right) } =>
       Console.println("String startsWith found")
       BinaryOperation(astParse(left), StringOperator.startsWith, astParse(right))
-    */
+
     //split
     case '{ ($left:String).split($right:String) } =>
       //Console.println("String split found")
