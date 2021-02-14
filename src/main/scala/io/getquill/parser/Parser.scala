@@ -341,15 +341,44 @@ case class OptionParser(root: Parser[Ast] = Parser.empty)(override implicit val 
   def reparent(newRoot: Parser[Ast]) = this.copy(root = newRoot)
 
   def delegate: PartialFunction[Expr[_], Ast] = {
-    case '{ ($o: Option[t]).isEmpty } => OptionIsEmpty(astParse(o))
+    del
+  }
+
+  def del: PartialFunction[Expr[_], Ast] = {
+    case '{ ($o: Option[t]).isEmpty } => 
+      // println("=======================isEmpty found=======================")
+      OptionIsEmpty(astParse(o))
+
+    case '{ ($o: Option[t]).nonEmpty } => 
+      // println("=======================nonEmpty found=======================")
+      OptionNonEmpty(astParse(o))
+
+    case '{ ($o: Option[t]).isDefined } => 
+      // println("=======================isDefined found=======================")
+      OptionIsDefined(astParse(o))
 
     case '{ ($o: Option[t]).map(${Lambda1(id, idType, body)}) } => 
+      // println("=======================map found=======================")
       if (is[Product](o)) OptionTableMap(astParse(o), cleanIdent(id, idType), astParse(body))
       else OptionMap(astParse(o), cleanIdent(id, idType), astParse(body))
-    
+
+    case '{ ($o: Option[t]).flatMap(${Lambda1(id, idType, body)}) } => 
+      // println("=======================flatMap found=======================")
+      if (is[Product](o)) OptionTableFlatMap(astParse(o), cleanIdent(id, idType), astParse(body))
+      else OptionMap(astParse(o), cleanIdent(id, idType), astParse(body))
+
     case '{ ($o: Option[t]).exists(${Lambda1(id, idType, body)}) } =>
+      // println("=======================exists found=======================")
       if (is[Product](o)) OptionTableExists(astParse(o), cleanIdent(id, idType), astParse(body))
       else OptionExists(astParse(o), cleanIdent(id, idType), astParse(body))
+
+    case '{ type t; ($o: Option[`t`]).getOrElse($body: `t`) } =>
+      // println("=======================getOrElse found=======================")
+      OptionGetOrElse(astParse(o), astParse(body))
+
+    case '{ type t; ($o: Option[`t`]).contains($body: `t`) } =>
+      // println("=======================contains found=======================")
+      OptionContains(astParse(o), astParse(body))
   }
 }
 
@@ -489,23 +518,36 @@ case class OperationsParser(root: Parser[Ast] = Parser.empty)(override implicit 
     case '{ ($i: String).toString } => astParse(i)
 
     //toUpperCase
-    case '{ ($str:String).toUpperCase() } =>
+    case '{ ($str:String).toUpperCase } =>
       Console.println("String to uppercase found")
-      Infix(List("ToUpperCase(", ")"), List(astParse(str)), true, Quat.Value)
+      UnaryOperation(StringOperator.toUpperCase, astParse(str))
 
     //toLowerCase
-    case '{ ($str:String).toLowerCase() } =>
+    case '{ ($str:String).toLowerCase } =>
       Console.println("String to lowercase found")
-      Infix(List("ToLowerCase(", ")"), List(astParse(str)), true, Quat.Value)
+      UnaryOperation(StringOperator.toLowerCase, astParse(str))
 
     //toLong
+    case '{ ($str:String).toLong } =>
+      Console.println("String toLong found")
+      UnaryOperation(StringOperator.toLong, astParse(str))
 
     //startsWith
+    case '{ ($left:String).startsWith($right) } =>
+      Console.println("String startsWith found")
+      BinaryOperation(astParse(left), StringOperator.startsWith, astParse(right))
 
     //split
-
+    case '{ ($left:String).split($right:String) } =>
+      //Console.println("String split found")
+      BinaryOperation(astParse(left), StringOperator.split, astParse(right))
     
 
+    /*
+    //SET Operations
+    case '{ ($set:String).contains() } =>
+      Console.printl("Wow you actually did it!")
+    */
     
     // 1 + 1
     // Apply(Select(Lit(1), +), Lit(1))

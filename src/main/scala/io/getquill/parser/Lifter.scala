@@ -117,8 +117,13 @@ trait Lifter(serializeQuats: Boolean) {
       case OptionSome(a) => '{ OptionSome(${a.expr}) }
       case OptionNone(quat) => '{ OptionNone(${quat.expr}) }
       case OptionIsEmpty(a) => '{ OptionIsEmpty(${a.expr}) }
+      case OptionNonEmpty(a) => '{ OptionNonEmpty(${a.expr}) }
+      case OptionIsDefined(a) => '{ OptionIsDefined(${a.expr}) }
+      case OptionGetOrElse(a, b) => '{ OptionGetOrElse(${a.expr}, ${b.expr}) }
+      case OptionContains(a, b) => '{ OptionContains(${a.expr}, ${b.expr}) }
       case OptionMap(a, b, c) => '{ OptionMap(${a.expr}, ${b.expr}, ${c.expr}) }
       case OptionTableMap(a, b, c) => '{ OptionTableMap(${a.expr}, ${b.expr}, ${c.expr}) }
+      case OptionTableFlatMap(a, b, c) => '{ OptionTableFlatMap(${a.expr}, ${b.expr}, ${c.expr}) }
       case OptionExists(a, b, c) => '{ OptionExists(${a.expr}, ${b.expr}, ${c.expr}) }
       case OptionTableExists(a, b, c) => '{ OptionTableExists(${a.expr}, ${b.expr}, ${c.expr}) }
   }
@@ -142,6 +147,7 @@ trait Lifter(serializeQuats: Boolean) {
       case Map(query: Ast, alias: AIdent, body: Ast) => '{ Map(${query.expr}, ${alias.expr}, ${body.expr})  }
       case FlatMap(query: Ast, alias: AIdent, body: Ast) => '{ FlatMap(${query.expr}, ${alias.expr}, ${body.expr})  }
       case Filter(query: Ast, alias: AIdent, body: Ast) => '{ Filter(${query.expr}, ${alias.expr}, ${body.expr})  }
+      case UnaryOperation(operator: UnaryOperator, a: Ast) => '{ UnaryOperation(${liftOperator(operator).asInstanceOf[Expr[UnaryOperator]]}, ${a.expr})  }
       case BinaryOperation(a: Ast, operator: BinaryOperator, b: Ast) => '{ BinaryOperation(${a.expr}, ${liftOperator(operator).asInstanceOf[Expr[BinaryOperator]]}, ${b.expr})  }
       case ScalarTag(uid: String) => '{ScalarTag(${uid.expr})}
       case QuotationTag(uid: String) => '{QuotationTag(${uid.expr})}
@@ -171,6 +177,11 @@ trait Lifter(serializeQuats: Boolean) {
       case NumericOperator.> => '{ NumericOperator.> }
       case NumericOperator.< => '{ NumericOperator.< }
       case StringOperator.+ => '{ StringOperator.+ }
+      case StringOperator.toUpperCase => '{ StringOperator.toUpperCase }
+      case StringOperator.toLowerCase => '{ StringOperator.toLowerCase }
+      case StringOperator.toLong => '{ StringOperator.toLong }
+      case StringOperator.startsWith => '{ StringOperator.startsWith }
+      case StringOperator.split => '{ StringOperator.split }
       case _: ee.type => '{ EqualityOperator.== } // if you don't do it this way, complains about 'stable identifier error'
       case BooleanOperator.|| => '{ BooleanOperator.|| }
       case BooleanOperator.&& => '{ BooleanOperator.&& }
