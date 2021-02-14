@@ -92,8 +92,13 @@ object Unlifter {
       case '{ OptionSome.apply($a) } => OptionSome(a.unexpr)
       case '{ OptionNone($quat) } => OptionNone(quat.unexpr)
       case '{ OptionIsEmpty.apply($a) } => OptionIsEmpty(a.unexpr)
+      case '{ OptionNonEmpty.apply($a) } => OptionNonEmpty(a.unexpr)
+      case '{ OptionIsDefined.apply($a) } => OptionIsDefined(a.unexpr)
+      case '{ OptionGetOrElse.apply($a, $b) } => OptionGetOrElse(a.unexpr, b.unexpr)
+      case '{ OptionContains.apply($a, $b) } => OptionContains(a.unexpr, b.unexpr)
       case '{ OptionMap.apply($a, $b, $c) } => OptionMap(a.unexpr, b.unexpr, c.unexpr)
       case '{ OptionTableMap.apply($a, $b, $c) } => OptionTableMap(a.unexpr, b.unexpr, c.unexpr)
+      case '{ OptionTableFlatMap.apply($a, $b, $c) } => OptionTableFlatMap(a.unexpr, b.unexpr, c.unexpr)
       case '{ OptionExists.apply($a, $b, $c) } => OptionExists(a.unexpr, b.unexpr, c.unexpr)
       case '{ OptionTableExists.apply($a, $b, $c) } => OptionTableExists(a.unexpr, b.unexpr, c.unexpr)
   }
@@ -117,6 +122,7 @@ object Unlifter {
       case '{ Map(${query}, ${alias}, ${body}: Ast) } => Map(query.unexpr, alias.unexpr, body.unexpr)
       case '{ FlatMap(${query}, ${alias}, ${body}: Ast) } => FlatMap(query.unexpr, alias.unexpr, body.unexpr)
       case '{ Filter(${query}, ${alias}, ${body}: Ast) } => Filter(query.unexpr, alias.unexpr, body.unexpr)
+      case '{ UnaryOperation(${operator}, ${a}: Ast) } => UnaryOperation(unliftOperator(operator).asInstanceOf[UnaryOperator], a.unexpr)
       case '{ BinaryOperation(${a}, ${operator}, ${b}: Ast) } => BinaryOperation(a.unexpr, unliftOperator(operator).asInstanceOf[BinaryOperator], b.unexpr)
       case '{ Property(${ast}, ${name}) } =>
         Property(ast.unexpr, constString(name))
@@ -151,6 +157,11 @@ object Unlifter {
       case '{ NumericOperator.> } =>  NumericOperator.>
       case '{ NumericOperator.< } =>  NumericOperator.<
       case '{ StringOperator.+ } =>  StringOperator.+
+      case '{ StringOperator.toUpperCase } =>  StringOperator.toUpperCase
+      case '{ StringOperator.toLowerCase } =>  StringOperator.toLowerCase
+      case '{ StringOperator.toLong } =>  StringOperator.toLong
+      case '{ StringOperator.startsWith } =>  StringOperator.startsWith
+      case '{ StringOperator.split } =>  StringOperator.split
       case '{ EqualityOperator.== } =>  EqualityOperator.==
       case '{ BooleanOperator.|| } =>  BooleanOperator.||
       case '{ BooleanOperator.&& } =>  BooleanOperator.&&
