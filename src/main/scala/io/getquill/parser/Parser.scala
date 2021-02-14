@@ -369,6 +369,9 @@ case class QueryParser(root: Parser[Ast] = Parser.empty)(override implicit val q
 
     case '{ ($q:Query[qt]).withFilter(${Lambda1(ident, tpe, body)}) } => 
       Filter(astParse(q), cleanIdent(ident, tpe), astParse(body))
+    
+    case '{type t1; type t2; ($q:Query[qt]).concatMap[`t1`, `t2`](${Lambda1(ident, tpe, body)})($unknown_stuff) } => //ask Alex why is concatMap like this? what's unkonwn_stuff?
+      ConcatMap(astParse(q), cleanIdent(ident, tpe), astParse(body))
 
     case '{ ($a: Query[t]).union($b) } => Union(astParse(a), astParse(b))
 
@@ -381,6 +384,11 @@ case class QueryParser(root: Parser[Ast] = Parser.empty)(override implicit val q
       FlatJoin(InnerJoin, astParse(q1), cleanIdent(ident1, tpe), astParse(on))
     case '{ type t1; ($q1: Query[`t1`]).leftJoin[`t1`](${Lambda1(ident1, tpe, on)}) } => 
       FlatJoin(LeftJoin, astParse(q1), cleanIdent(ident1, tpe), astParse(on))
+    
+    case '{ type t; ($q: Query[`t`]).take($n: Int) } =>
+      Take(astParse(q),astParse(n))
+    case '{ type t; ($q: Query[`t`]).drop($n: Int) } =>
+      Drop(astParse(q),astParse(n))
   }
 
   def reparent(newRoot: Parser[Ast]) = this.copy(root = newRoot)
