@@ -17,6 +17,7 @@ import io.getquill.Format
 import io.getquill.parser.ParserHelpers._
 import io.getquill.quat.QuatMaking
 import io.getquill.quat.Quat
+import io.getquill.EntityQueryModel
 
 type Parser[R] = PartialFunction[quoted.Expr[_], R]
 type SealedParser[R] = (quoted.Expr[_] => R)
@@ -75,6 +76,13 @@ object Parser {
       delegate.isDefinedAt(expr)
     }
 
+  }
+
+  /** Optimizes 'Clause' by checking if it is some given type first. Otherwise can early-exit */
+  trait SpecificClause[Criteria: Type, R](using override val qctx: Quotes) extends Clause[R] {
+    import qctx.reflect._
+    override def isDefinedAt(expr: Expr[_]): Boolean =
+      expr.asTerm.tpe <:< TypeRepr.of[Criteria] && delegate.isDefinedAt(expr)
   }
 
   trait Clause[R](using override val qctx: Quotes) extends Delegated[R] with TastyMatchers with Idents with QuatMaking { base =>
@@ -227,6 +235,19 @@ case class CasePatMatchParser(root: Parser[Ast] = Parser.empty)(override implici
 
 
 
+// Can potentially use this to optimize by doing per-expression type checking before matching an expression
+// e.g. case Is[String]( '{ (i: Int).toString } ). It would only try to match the expression if it knows
+// the whole clause is typed as a string
+// object Is {
+//   def unapply[T](expr: Expr[_])(using tpe: Type[T], qctx: Quotes): Option[Expr[_]] =
+//     import qctx.reflect._
+//     if (expr.asTerm.tpe <:< TypeRepr.of[T])
+//       Some(expr)
+//     else
+//       None
+// }
+
+
 // TODO Pluggable-in unlifter via implicit? Quotation dsl should have it in the root?
 case class QuotationParser(root: Parser[Ast] = Parser.empty)(override implicit val qctx: Quotes) extends Parser.Clause[Ast] {
   import quotes.reflect.{ Ident => TIdent, _}
@@ -259,7 +280,7 @@ case class QuotationParser(root: Parser[Ast] = Parser.empty)(override implicit v
   }
 }
 
-case class ActionParser(root: Parser[Ast] = Parser.empty)(override implicit val qctx: Quotes) extends Parser.Clause[Ast] with Assignments {
+case class ActionParser(root: Parser[Ast] = Parser.empty)(override implicit val qctx: Quotes) extends Parser.SpecificClause[io.getquill.Action[_], Ast] with Assignments {
   import quotes.reflect.{Constant => TConstantant, _}
   import Parser.Implicits._
   
@@ -268,11 +289,56 @@ case class ActionParser(root: Parser[Ast] = Parser.empty)(override implicit val 
   }
 
   def del: PartialFunction[Expr[_], Ast] = {
-    case '{ type t; ($query: EntityQuery[`t`]).insert(($first: `t`=>(Any,Any)), (${Varargs(others)}: Seq[`t` => (Any, Any)]): _*) } =>
-      println("****************** Parsed Here ***********")
+    case '{ type t; ($query: EntityQueryModel[`t`]).insert(($first: `t`=>(Any,Any)), (${Varargs(others)}: Seq[`t` => (Any, Any)]): _*) } =>
+      println("****************** Insert Parsed Here ***********")
       val insertAssignments = first.asTerm +: others.map(_.asTerm)
       val assignments = insertAssignments.filterNot(isNil(_)).map(a => AssignmentTerm.OrFail(a))
       Insert(astParse(query), assignments.toList)
+    case '{ type t; ($query: EntityQueryModel[`t`]).update(($first: `t`=>(Any,Any)), (${Varargs(others)}: Seq[`t` => (Any, Any)]): _*) } =>
+      println("****************** Update Parsed Here ***********")
+      val updateAssignments = first.asTerm +: others.map(_.asTerm)
+      val assignments = updateAssignments.filterNot(isNil(_)).map(a => AssignmentTerm.OrFail(a))
+      Update(astParse(query), assignments.toList)
+    case '{ type t; ($query: EntityQueryModel[`t`]).delete } =>
+      println("****************** Delete Parsed Here ***********")
+      Delete(astParse(query))
+
+    // case Unseal(Update) =>
+    //   Update(astParser(query), assignments.map(assignmentParser(_)))
+    // case Unseal(Insert) =>
+    //   Insert(astParser(query), assignments.map(assignmentParser(_)))
+    // case Unseal(Delete) =>
+    //   Delete(astParser(query))
+    // case Unseal(Returning_NoArguments) =>
+    //   c.fail(s"A 'returning' clause must have arguments.")
+    // case Unseal(Returning) =>
+    //   val ident = identParser(alias)
+    //   val bodyAst = reprocessReturnClause(ident, astParser(body), action)
+    //   // Verify that the idiom supports this type of returning clause
+    //   idiomReturnCapability match {
+    //     case ReturningMultipleFieldSupported | ReturningClauseSupported | OutputClauseSupported =>
+    //     case ReturningSingleFieldSupported =>
+    //       c.fail(s"The 'returning' clause is not supported by the ${currentIdiom.getOrElse("specified")} idiom. Use 'returningGenerated' instead.")
+    //     case ReturningNotSupported =>
+    //       c.fail(s"The 'returning' or 'returningGenerated' clauses are not supported by the ${currentIdiom.getOrElse("specified")} idiom.")
+    //   }
+    //   // Verify that the AST in the returning-body is valid
+    //   idiomReturnCapability.verifyAst(bodyAst)
+    //   Returning(astParser(action), ident, bodyAst)
+    // case Unseal(Returning_generated) =>
+    //   val ident = identParser(alias)
+    //   val bodyAst = reprocessReturnClause(ident, astParser(body), action)
+    //   // Verify that the idiom supports this type of returning clause
+    //   idiomReturnCapability match {
+    //     case ReturningNotSupported =>
+    //       c.fail(s"The 'returning' or 'returningGenerated' clauses are not supported by the ${currentIdiom.getOrElse("specified")} idiom.")
+    //     case _ =>
+    //   }
+    //   // Verify that the AST in the returning-body is valid
+    //   idiomReturnCapability.verifyAst(bodyAst)
+    //   ReturningGenerated(astParser(action), ident, bodyAst)
+    // case Unseal(Foreach) =>
+    //   AvoidAliasConflict.sanitizeVariables(Foreach(astParser(query), identParser(alias), astParser(body)), dangerousVariables)
 
     // case Unseal(Apply(Select(query, "insert"), insertAssignments)) =>
     //   val assignments = insertAssignments.filterNot(isNil(_)).map(a => AssignmentTerm.OrFail(a))
@@ -288,6 +354,9 @@ case class ActionParser(root: Parser[Ast] = Parser.empty)(override implicit val 
   def reparent(newRoot: Parser[Ast]) = this.copy(root = newRoot)
 }
 
+// We can't use SpecificClause[Option[_]] here since the types of quotations that need to match
+// are not necessarily an Option[_] e.g. Option[t].isEmpty needs to match on a clause whose type is Boolean
+// That's why we need to use the 'Is' object and optimize it that way here 
 case class OptionParser(root: Parser[Ast] = Parser.empty)(override implicit val qctx: Quotes) extends Parser.Clause[Ast] {
   import qctx.reflect.{Constant => TConstantant, _}
   import Parser.Implicits._
@@ -336,7 +405,7 @@ case class OptionParser(root: Parser[Ast] = Parser.empty)(override implicit val 
   }
 }
 
-case class QueryParser(root: Parser[Ast] = Parser.empty)(override implicit val qctx: Quotes) extends Parser.Clause[Ast] with PropertyAliases {
+case class QueryParser(root: Parser[Ast] = Parser.empty)(override implicit val qctx: Quotes) extends Parser.SpecificClause[io.getquill.Query[_], Ast] with PropertyAliases {
   import qctx.reflect.{Constant => TConstantant, _}
   import Parser.Implicits._
 
@@ -600,3 +669,5 @@ case class GenericExpressionsParser(root: Parser[Ast] = Parser.empty)(override i
       astParse(v.asExpr)
   }
 }
+
+
