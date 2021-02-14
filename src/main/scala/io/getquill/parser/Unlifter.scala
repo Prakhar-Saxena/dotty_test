@@ -92,8 +92,13 @@ object Unlifter {
       case '{ OptionSome.apply($a) } => OptionSome(a.unexpr)
       case '{ OptionNone($quat) } => OptionNone(quat.unexpr)
       case '{ OptionIsEmpty.apply($a) } => OptionIsEmpty(a.unexpr)
+      case '{ OptionNonEmpty.apply($a) } => OptionNonEmpty(a.unexpr)
+      case '{ OptionIsDefined.apply($a) } => OptionIsDefined(a.unexpr)
+      case '{ OptionGetOrElse.apply($a, $b) } => OptionGetOrElse(a.unexpr, b.unexpr)
+      case '{ OptionContains.apply($a, $b) } => OptionContains(a.unexpr, b.unexpr)
       case '{ OptionMap.apply($a, $b, $c) } => OptionMap(a.unexpr, b.unexpr, c.unexpr)
       case '{ OptionTableMap.apply($a, $b, $c) } => OptionTableMap(a.unexpr, b.unexpr, c.unexpr)
+      case '{ OptionTableFlatMap.apply($a, $b, $c) } => OptionTableFlatMap(a.unexpr, b.unexpr, c.unexpr)
       case '{ OptionExists.apply($a, $b, $c) } => OptionExists(a.unexpr, b.unexpr, c.unexpr)
       case '{ OptionTableExists.apply($a, $b, $c) } => OptionTableExists(a.unexpr, b.unexpr, c.unexpr)
   }
