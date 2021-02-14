@@ -78,6 +78,13 @@ object Parser {
 
   }
 
+  /** Optimizes 'Clause' by checking if it is some given type first. Otherwise can early-exit */
+  trait SpecificClause[Criteria: Type, R](using override val qctx: Quotes) extends Clause[R] {
+    import qctx.reflect._
+    override def isDefinedAt(expr: Expr[_]): Boolean =
+      expr.asTerm.tpe <:< TypeRepr.of[Criteria] && delegate.isDefinedAt(expr)
+  }
+
   trait Clause[R](using override val qctx: Quotes) extends Delegated[R] with TastyMatchers with Idents with QuatMaking { base =>
     import Implicits._
 
@@ -228,6 +235,19 @@ case class CasePatMatchParser(root: Parser[Ast] = Parser.empty)(override implici
 
 
 
+// Can potentially use this to optimize by doing per-expression type checking before matching an expression
+// e.g. case Is[String]( '{ (i: Int).toString } ). It would only try to match the expression if it knows
+// the whole clause is typed as a string
+// object Is {
+//   def unapply[T](expr: Expr[_])(using tpe: Type[T], qctx: Quotes): Option[Expr[_]] =
+//     import qctx.reflect._
+//     if (expr.asTerm.tpe <:< TypeRepr.of[T])
+//       Some(expr)
+//     else
+//       None
+// }
+
+
 // TODO Pluggable-in unlifter via implicit? Quotation dsl should have it in the root?
 case class QuotationParser(root: Parser[Ast] = Parser.empty)(override implicit val qctx: Quotes) extends Parser.Clause[Ast] {
   import quotes.reflect.{ Ident => TIdent, _}
@@ -260,7 +280,7 @@ case class QuotationParser(root: Parser[Ast] = Parser.empty)(override implicit v
   }
 }
 
-case class ActionParser(root: Parser[Ast] = Parser.empty)(override implicit val qctx: Quotes) extends Parser.Clause[Ast] with Assignments {
+case class ActionParser(root: Parser[Ast] = Parser.empty)(override implicit val qctx: Quotes) extends Parser.SpecificClause[io.getquill.Action[_], Ast] with Assignments {
   import quotes.reflect.{Constant => TConstantant, _}
   import Parser.Implicits._
   
@@ -334,6 +354,9 @@ case class ActionParser(root: Parser[Ast] = Parser.empty)(override implicit val 
   def reparent(newRoot: Parser[Ast]) = this.copy(root = newRoot)
 }
 
+// We can't use SpecificClause[Option[_]] here since the types of quotations that need to match
+// are not necessarily an Option[_] e.g. Option[t].isEmpty needs to match on a clause whose type is Boolean
+// That's why we need to use the 'Is' object and optimize it that way here 
 case class OptionParser(root: Parser[Ast] = Parser.empty)(override implicit val qctx: Quotes) extends Parser.Clause[Ast] {
   import qctx.reflect.{Constant => TConstantant, _}
   import Parser.Implicits._
@@ -382,7 +405,7 @@ case class OptionParser(root: Parser[Ast] = Parser.empty)(override implicit val 
   }
 }
 
-case class QueryParser(root: Parser[Ast] = Parser.empty)(override implicit val qctx: Quotes) extends Parser.Clause[Ast] with PropertyAliases {
+case class QueryParser(root: Parser[Ast] = Parser.empty)(override implicit val qctx: Quotes) extends Parser.SpecificClause[io.getquill.Query[_], Ast] with PropertyAliases {
   import qctx.reflect.{Constant => TConstantant, _}
   import Parser.Implicits._
 
