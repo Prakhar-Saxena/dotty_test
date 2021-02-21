@@ -154,6 +154,9 @@ object Unlifter {
       case '{ StringOperator.toLong } =>  StringOperator.toLong
       case '{ StringOperator.startsWith } =>  StringOperator.startsWith
       case '{ StringOperator.split } =>  StringOperator.split
+      case '{SetOperator.contains} => SetOperator.contains
+      case '{SetOperator.isEmpty} => SetOperator.isEmpty
+      case '{SetOperator.nonEmpty} => SetOperator.nonEmpty
       case '{ EqualityOperator.== } =>  EqualityOperator.==
       case '{ BooleanOperator.|| } =>  BooleanOperator.||
       case '{ BooleanOperator.&& } =>  BooleanOperator.&&

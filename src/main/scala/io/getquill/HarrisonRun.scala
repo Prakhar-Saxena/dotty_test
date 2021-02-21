@@ -12,10 +12,10 @@ object HarrisonRun {
     val y : Int = 5
     */
 
-    val x : String = "h h"
+    val x = Set[Int]()
     val y : String = "o"
 
-    val output = quote{ x.split(" ") }//compileeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+    val output = quote{ x.nonEmpty }//compileeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
     println(output)
 
   }

@@ -175,6 +175,9 @@ trait Lifter(serializeQuats: Boolean) {
       case StringOperator.toLong => '{ StringOperator.toLong }
       case StringOperator.startsWith => '{ StringOperator.startsWith }
       case StringOperator.split => '{ StringOperator.split }
+      case SetOperator.contains => '{ SetOperator.contains }
+      case SetOperator.isEmpty => '{ SetOperator.isEmpty }
+      case SetOperator.nonEmpty => '{ SetOperator.nonEmpty }
       case _: ee.type => '{ EqualityOperator.== } // if you don't do it this way, complains about 'stable identifier error'
       case BooleanOperator.|| => '{ BooleanOperator.|| }
       case BooleanOperator.&& => '{ BooleanOperator.&& }

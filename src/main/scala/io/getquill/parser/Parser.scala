@@ -464,15 +464,26 @@ case class OperationsParser(root: Parser[Ast] = Parser.empty)(override implicit 
 
     //split
     case '{ ($left:String).split($right:String) } =>
-      //Console.println("String split found")
+      Console.println("String split found")
       BinaryOperation(astParse(left), StringOperator.split, astParse(right))
     
 
-    /*
-    //SET Operations
-    case '{ ($set:String).contains() } =>
-      Console.printl("Wow you actually did it!")
-    */
+    
+    //Set Operations
+
+    //Contains
+    case '{ (${set}: Set[t] ).contains($elem) } =>
+      Console.println("Set contains found")
+      BinaryOperation(astParse(set), SetOperator.contains, astParse(elem))
+
+    case '{ (${set}: Set[t] ).isEmpty } =>
+      Console.println("Set isEmpty found")
+      UnaryOperation(SetOperator.isEmpty, astParse(set))
+
+    case '{ (${set}: Set[t] ).nonEmpty } =>
+      Console.println("Set nonEmpty found")
+      UnaryOperation(SetOperator.nonEmpty, astParse(set))
+    
     
     // 1 + 1
     // Apply(Select(Lit(1), +), Lit(1))
