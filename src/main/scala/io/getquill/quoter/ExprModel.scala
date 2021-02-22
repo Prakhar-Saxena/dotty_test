@@ -249,6 +249,9 @@ object QuotationLotExpr {
         case '{ InsertMeta.apply[t]($quotation, ${ConstExpr(uid: String)}) } =>
           Some((quotation, uid, List()))
 
+        case '{ CaseClassLift.apply[t]($quotation, ${ConstExpr(uid: String)}) } =>
+          Some((quotation, uid, List()))
+
         case '{ QueryMeta.apply[t, r]($quotation, ${ConstExpr(uid: String)}, $extractor) } =>
           Some((quotation, uid, List(extractor)))
 
@@ -311,13 +314,48 @@ object QuotationLotExpr {
 
   case class Pointable(expr: Expr[QuotationLot[Any]]) extends QuotationLotExpr
 
-  // QuotationLots that have runtime values hance cannot be re-planted into the scala AST and
-  // they need to be put into QuotationVasees
+  /**
+   * QuotationLots that have runtime values hance cannot be re-planted into the scala AST and
+   * they need to be put into QuotationVasees.
+   * The 'other' argument is meant to be used in various unique circumstances. Right now it
+   * is just used by a QueryMeta to carry an extractor function that contra-maps back to the T type
+   */
   case class Pluckable(uid: String, expr: Expr[Quoted[Any]], other: List[Expr[_]]) extends QuotationLotExpr {
     def pluck(using Quotes) = '{ QuotationVase($expr, ${Expr(uid)}) }
   }
 
   // QuotationLots expressions that can be further inlined into quotated clauses
+
+
+  // Alternative more-compact representation of Uprootable, look into doing this
+  // {
+  //   class Uprootable(
+  //     val uid: String, 
+  //     val ast: Expr[Ast], 
+  //     val inlineLifts: List[PlanterExpr[_, _]]
+  //   )(
+  //     val bin: Expr[QuotationLot[Any]], 
+  //     val quotation: Expr[Quoted[Any]],
+  //     val rest: List[Expr[_]]
+  //   )
+
+  //   object Uprootable {
+  //     def unapply(value: Uprootable): Option[(String, Expr[Ast], List[PlanterExpr[_, _]])] =
+  //       Some((value.uid, value.ast, value.inlineLifts))
+      
+  //     object Full {
+  //       def unapply(value: Uprootable): Option[(
+  //         uid: String, 
+  //         ast: Expr[Ast],
+  //         bin: Expr[QuotationLot[Any]], 
+  //         quotation: Expr[Quoted[Any]],
+  //         inlineLifts: List[PlanterExpr[_, _]],
+  //         rest: List[Expr[_]]
+  //       )] = Some((value.uid, value.ast, value.bin, value.quotation, value.inlineLifts, value.rest))
+  //     }
+  //   }
+  // }
+
   case class Uprootable(
     uid: String, 
     ast: Expr[Ast],

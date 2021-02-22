@@ -1,6 +1,6 @@
 package io.getquill.parser
 
-import scala.quoted._
+import scala.quoted.{ Const => _, _ }
 import scala.quoted.Varargs
 
 final class TastyMatchersContext(using val qctx: Quotes) extends TastyMatchers
@@ -118,6 +118,23 @@ trait TastyMatchers {
     def unapply(term: Expr[_]): Option[(Expr[_], String)] = term match {
       case Unseal(Select(Seal(prefix), memberName)) => Some((prefix, memberName))
       case _ => None
+    }
+  }
+
+  extension (expr: Expr[_]) {
+    def `.`(property: String) = {
+      val cls =  
+          expr.asTerm.tpe.widen.classSymbol.getOrElse { 
+            report.throwError(s"Cannot find class symbol of the property ${expr.show}", expr) 
+          }
+      val method = 
+        cls.memberFields // using memberFields might be more efficient but with it we have no control over the error messages since if method doesn't exist, exception is thrown right away
+          .find(sym => sym.name == property)
+          .getOrElse { 
+            report.throwError(s"Cannot find property '${property}' of (${expr.show}:${cls.name}) fields are: ${cls.memberFields.map(_.name)}", expr)
+          }
+
+      '{ (${ Select(expr.asTerm, method).asExpr }) }
     }
   }
 
@@ -306,20 +323,24 @@ trait TastyMatchers {
   object CaseClassCreation:
     // For modules, the _ in Select coule be a couple of things (say the class is Person):
     //   New(TypeIdent("Person$")), "<init>"), Nil) - When the case class is declared in a function body
+    //   Select(This(This(Some(outerClass))), name) - When the case class is declared in the same class as the context (currently happens in actions, see the "macro" test in ActionTest.scala)
     //   Ident("Person")                            - When the case class is declared in an object or top-level
     object ModuleCreation:
       def unapply(term: Term) = term match
         case Apply(Select(New(TypeIdent(moduleType)), "<init>"), list) if (list.length == 0) && moduleType.endsWith("$") => true
+        case Select(This(outerClass), name)  => true
         case Ident(name) => true
         case _ => false
 
-    def unapply(expr: Expr[Any]): Option[(String, List[String], List[Expr[Any]])] =
+    def unapply(expr: Expr[Any]): Option[(String, List[String], List[Expr[Any]])] = {
       // lazy val tpe = expr.asTerm.tpe
       // lazy val companionClass = tpe.classSymbol.get.companionClass
       // lazy val name = tpe.classSymbol.get.name
       // lazy val fields = tpe.classSymbol.get.caseFields.map(_.name) // Don't actually evaluate them unless it matches
+      //println(s"@@@@@@@@@@@@@@ ***************** TRYING CASE CLASS CREATE ***************** @@@@@@@@@@@@@@\n" + Printer.TreeStructure.show(expr.asTerm))
 
-      def companionIsProduct(classSymbol: Symbol) = expr.asTerm.tpe.select(classSymbol.companionClass) <:< TypeRepr.of[Product]
+      //def companionIsProduct(classSymbol: Symbol) = expr.asTerm.tpe.select(classSymbol.companionClass) <:< TypeRepr.of[Product]
+      val out =
       UntypeExpr(expr) match
         // case Unseal(theExpr @ Apply(Select(foo, "apply"), list)) if (foo.show.contains("Contact")) =>
           // println("**************** STOP HERE ****************")
@@ -336,11 +357,18 @@ trait TastyMatchers {
           // println("Flags: " + (tpe.classSymbol.get.flags.show))
           // report.throwError("**************** STOP HERE ****************")
         case ClassSymbolAndUnseal(sym, Apply(Select(New(TypeIdent(_)), "<init>"), args)) if isType[Product](expr) =>
+          //println("@@@@@@@@@@@@============== !!!!! MATCH ON IN-FUNC !!!!! ==============@@@@@@@@@@@@")
           Some((sym.name, sym.caseFields.map(_.name), args.map(_.asExpr)))
-        case ClassSymbolAndUnseal(sym, Apply(Select(ModuleCreation(), "apply"), args)) if isType[Product](expr) && sym.flags.is(Flags.Case) =>
+        case ClassSymbolAndUnseal(sym, Apply(Select(ModuleCreation(), "apply"), args)) if isType[Product](expr) => //&& sym.flags.is(Flags.Case)
+          //println("@@@@@@@@@@@@============== !!!!! MATCH ON MOD !!!!! ==============@@@@@@@@@@@@")
           Some((sym.name, sym.caseFields.map(_.name), args.map(_.asExpr)))
         case _ => 
+          //println("@@@@@@@@@@@@============== No Match ==============@@@@@@@@@@@@")
           None
+
+      //println("@@@@@@@@@@@@============== OUT ==============@@@@@@@@@@@@\n" + out)
+      out
+    }
 
   // TODO Change to 'is'
   def isType[T: Type](input: Expr[_]) =
@@ -349,4 +377,38 @@ trait TastyMatchers {
   // TODO Change to 'are'
   def is[T: Type](inputs: Expr[_]*): Boolean =
     inputs.forall(input => input.asTerm.tpe <:< TypeRepr.of[T])
+
+  object Const {
+    /** Matches expressions containing literal constant values and extracts the value.
+     *
+     *  - Converts expression containg literal values to their values:
+     *    - `'{1}` -> `1`, `'{2}` -> `2`, ...
+     *    - For all primitive types and `String`
+     *
+     *  Usage:
+     *  ```
+     *  case '{ ... ${expr @ Const(value)}: T ...} =>
+     *    // expr: Expr[T]
+     *    // value: T
+     *  ```
+     *
+     *  To directly unlift an expression `expr: Expr[T]` consider using `expr.unlift`/`expr.unliftOrError` insead.
+     */
+    def unapply[T](expr: Expr[T])(using Quotes): Option[T] = {
+      import quotes.reflect._
+      def rec(tree: Term): Option[T] = tree match {
+        case Literal(c) =>
+          c match
+            // case Constant.Null() => None
+            // case Constant.Unit() => None
+            // case Constant.ClassOf(_) => None
+            case _ => Some(c.value.asInstanceOf[T])
+        case Block(Nil, e) => rec(e)
+        case Typed(e, _) => rec(e)
+        case Inlined(_, Nil, e) => rec(e)
+        case _  => None
+      }
+      rec(Term.of(expr))
+    }
+  }
 }

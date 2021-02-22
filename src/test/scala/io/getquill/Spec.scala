@@ -10,15 +10,42 @@ import io.getquill.quoter.Quoted
 import io.getquill.quoter.EagerPlanter
 import io.getquill.ast._
 import io.getquill.quat.Quat
+import io.getquill.NamingStrategy
+import io.getquill.idiom.Idiom
+import io.getquill.Query
+import io.getquill.quoter._
+import io.getquill.quoter.Dsl._
 
 abstract class Spec extends AnyFreeSpec with Matchers /* with BeforeAndAfterAll */ {
+  
+  extension [T](m: MirrorContext[_, _]#ActionMirror)
+    def triple = 
+      (
+        m.string, 
+        m.prepareRow match {
+          case r: io.getquill.context.mirror.Row => 
+            r.data.toList.map(_._2)
+        }, 
+        m.executionType
+      )
 
-  extension [T, PrepareRow](q: Quoted[T]) {
+  extension [T, D <: Idiom, N <: NamingStrategy](ctx: MirrorContext[D, N])
+    inline def pull(inline q: Query[T]) =
+      val r = ctx.run(q)
+      (
+        r.prepareRow match {
+          case r: io.getquill.context.mirror.Row => 
+            r.data.toList.map(_._2)
+        }, 
+        r.executionType
+      )
+
+  extension [T, PrepareRow](q: Quoted[T])
     def encodeEagerLifts(row: PrepareRow) =
       q.lifts.zipWithIndex.collect {
         case (ep: EagerPlanter[String, PrepareRow], idx) => ep.encoder(idx, ep.value, row)
       }
-  }
+  
 
   object ShortAst {
     object Id {

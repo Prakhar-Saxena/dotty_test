@@ -10,12 +10,17 @@ import io.getquill.Query
 import io.getquill.util.Messages
 import io.getquill.parser.Lifter
 import io.getquill.Udt
+import scala.collection.mutable
+import io.getquill.dsl.GenericEncoder
 
+// TODO Shuold not be using this 'Quoted', remove it
 case class Quoted[+T](val ast: io.getquill.ast.Ast)
 
 trait Value[T]
 
 // TODO Quat lifting so can return them from this function
+
+inline def quatOf[T]: Quat = ${ QuatMaking.quatOfImpl[T] }
 
 object QuatMaking {
   inline def inferQuat[T](value: T): Quat = ${ inferQuatImpl('value) }
@@ -25,24 +30,58 @@ object QuatMaking {
     Lifter.quat(quat)
   }
 
-  def ofType[T: TType](using quotes: Quotes): Expr[Quat] = {
+  def ofType[T: TType](using quotes: Quotes): Quat =
+   (new QuatMaking {}).InferQuat.of[T]
+
+  def quatOfImpl[T: TType](using quotes: Quotes): Expr[Quat] = {
     val quat = (new QuatMaking {}).InferQuat.of[T]
     println(io.getquill.util.Messages.qprint(quat))
     Lifter.quat(quat)
   }
-}
 
-inline def quatOf[T]: Quat = ${ QuatMaking.ofType[T] }
+  type QuotesTypeRepr = Quotes#reflectModule#TypeRepr
+
+  private val encodeableCache: mutable.Map[QuotesTypeRepr, Boolean] = mutable.Map()
+  def lookupIsEncodeable(tpe: QuotesTypeRepr)(computeEncodeable: () => Boolean) =
+    computeEncodeable()
+    // val lookup = encodeableCache.get(tpe)
+    // lookup match
+    //   case Some(value) => 
+    //     value
+    //   case None =>
+    //     val encodeable = computeEncodeable()
+    //     encodeableCache.put(tpe, encodeable)
+    //     encodeable
+
+  private val quatCache: mutable.Map[QuotesTypeRepr, Quat] = mutable.Map()
+  def lookupCache(tpe: QuotesTypeRepr)(computeQuat: () => Quat) =
+    computeQuat()
+    // val lookup = quatCache.get(tpe)
+    // lookup match
+    //   case Some(value) => 
+    //     //println(s"---------------- SUCESSFULL LOOKUP OF: ${tpe}: ${value}")
+    //     value
+    //   case None =>
+    //     //println(s"-------!!!!!!!!! FAILED LOOKUP OF: ${tpe}")
+    //     val quat = computeQuat()
+    //     quatCache.put(tpe, quat)
+    //     quat
+}
 
 trait QuatMaking(using override val qctx: Quotes) extends QuatMakingBase {
   import qctx.reflect._
   override def existsEncoderFor(tpe: TypeRepr): Boolean =  
-    tpe.asType match
-      case '[t] => Expr.summon[Value[t]] match
-        case Some(_) => true
-        case None => false
-      case _ =>
-        false
+    // TODO Try summoning 'value' to know it's a value for sure if a encoder doesn't exist?
+    def encoderComputation() = {
+      tpe.asType match
+        case '[t] => Expr.summon[GenericEncoder[t, _]] match // Pass in PrepareRow as well in order to have things be possibly products in one dialect and values in another???
+          case Some(_) => true
+          case None => false
+        case _ =>
+          false
+    }
+    val output = QuatMaking.lookupIsEncodeable(tpe.widen)(encoderComputation)
+    output
         //quotes.reflect.report.throwError(s"No type for: ${tpe}")
 }
 
@@ -305,7 +344,7 @@ trait QuatMakingBase(using val qctx: Quotes) {
 
           // If the type is optional, recurse
           case OptionType(innerParam) =>
-            //println("=========> Is Option")
+            //asprintln("=========> Is Option")
             parseType(innerParam)
 
           case _ if (isNone(tpe)) =>
@@ -323,7 +362,11 @@ trait QuatMakingBase(using val qctx: Quotes) {
             //println("=========> Is ArbitraryClassBased")
             Quat.Product(fields.map { case (fieldName, fieldType) => (fieldName, parseType(fieldType)) })
 
+          // If the quat is a coproduct, merge the sub quats that are recursively retrieved
+          case CoProduct(quat) => quat
+
           // Is it a generic or does it have any generic parameters that have not been filled (e.g. is T not filled in Option[T] ?)
+          // TODO Improve by making specific flag check to see that it's a coproduct
           case Param(tpe) =>
             //println("=========> Is Generic")
             Quat.Generic
@@ -336,9 +379,67 @@ trait QuatMakingBase(using val qctx: Quotes) {
             //Quat.Unknown
         }
 
-      val output = parseTopLevelType(tpe)
+      val output = QuatMaking.lookupCache(tpe.widen)(() => parseTopLevelType(tpe))
       //println(s"*********** PARSED QUAT: ${output} ***********")
       output
+    }
+
+    object CoProduct {
+      import io.getquill.quat.LinkedHashMapOps._
+      import scala.deriving._
+      import scala.quoted._
+
+      def computeCoproduct[T](using tpe: Type[T]): Option[Quat] = {
+        Expr.summon[Mirror.Of[T]] match
+          case Some(ev) =>
+            ev match
+              case '{ $m: Mirror.SumOf[T] { type MirroredElemLabels = elementLabels; type MirroredElemTypes = elementTypes }} =>
+                  val coproductQuats = traverseCoproduct[elementTypes](Type.of[elementTypes])
+                  val reduced = coproductQuats.reduce((q1, q2) => mergeQuats(q1, q2))
+                  Some(reduced)
+              case _ =>
+                None
+
+          case None =>
+            None
+      }
+
+      def unapply(tpeRepr: TypeRepr) =
+        // If you don't widen the exception happens: "Could not match on type: Type.of[...]
+        val tpe = tpeRepr.widen.asType
+        tpe match {
+          case '[t] => 
+            val typedTpe = tpe.asInstanceOf[Type[t]]
+            computeCoproduct[t](using typedTpe)
+          case _ =>
+            report.throwError(s"Could not match on type: ${tpe}")
+        }
+
+      def traverseCoproduct[Types](types: Type[Types]): List[Quat] =
+        types match
+          case '[tpe *: tpes] =>
+            InferQuat.of[tpe] :: traverseCoproduct[tpes](Type.of[tpes])
+          case '[EmptyTuple] =>
+            Nil
+
+      def mergeQuats(q1: Quat, q2: Quat): Quat =
+        (q1, q2) match
+          case (first: Quat.Product, second: Quat.Product) =>
+            val newFields =
+              first.fields.outerZipWith(second.fields) {
+                case (key, Some(first), Some(second)) => (key, mergeQuats(first, second))
+                case (key, Some(first), None) => (key, first)
+                case (key, None, Some(second)) => (key, second)
+                case (key, None, None) => throw new IllegalArgumentException(s"Invalid state for Quat key ${key}, both values of merging quats were null")
+              }
+            Quat.Product(newFields)
+
+          case (firstQuat, secondQuat) => 
+            firstQuat.leastUpperType(secondQuat) match
+              case Some(value) => value
+              // TODO Get field names for these quats if they are inside something else?
+              case None => throw new IllegalArgumentException(s"Could not create coproduct by merging quats ${q1} and ${q2}")
+
     }
 
     object QuotedType {

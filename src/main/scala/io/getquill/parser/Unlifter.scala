@@ -20,21 +20,6 @@ object Unlifter {
   extension [T](t: Expr[T])(using FromExpr[T], Quotes)
     def unexpr: T = t.valueOrError
 
-  // def apply(astExpr: Expr[Ast]): Ast = astExpr.unexpr
-  // def isDefinedAt(astExpr: Expr[Ast]): Boolean = unliftAst.isDefinedAt(astExpr)
-  // private def constString(expr: Expr[Any]): String = 
-  //   expr match { case Const(v: String) => v }
-
-  // implicit def unliftString: Unlift[String] = { case Const(v: String) => v }
-  // implicit def unliftDouble: Unlift[Double] = { case Const(v: Double) => v }
-  // implicit def unliftFloat: Unlift[Float] = { case Const(v: Float) => v }
-  // implicit def unliftLong: Unlift[Long] = { case Const(v: Long) => v }
-  // implicit def unliftInt: Unlift[Int] = { case Const(v: Int) => v }
-  // implicit def unliftShort: Unlift[Short] = { case Const(v: Short) => v }
-  // implicit def unliftByte: Unlift[Byte] = { case Const(v: Byte) => v }
-  // implicit def unliftChar: Unlift[Char] = { case Const(v: Char) => v }
-  // implicit def unliftBoolean: Unlift[Boolean] = { case Const(v: Boolean) => v }
-
   trait NiceUnliftable[T: ClassTag] extends FromExpr[T] { // : ClassTag
     def unlift: Quotes ?=> PartialFunction[Expr[T], T]
     def apply(expr: Expr[T])(using Quotes): T =
@@ -59,7 +44,11 @@ object Unlifter {
 
   given unliftIdent: NiceUnliftable[AIdent] with
     def unlift =
-      case '{ AIdent(${Const(name: String)}, $quat) } => AIdent(name, quat.unexpr)
+      case '{ AIdent(${Expr(name: String)}, $quat) } =>
+        // Performance optimization! Since Ident.quat is a by-name parameter, unless we force it to unexpr here,
+        // it will be done over and over again each time quat.unexpr is called which is extremely wasteful.
+        val unliftedQuat = quat.unexpr
+        AIdent(name, unliftedQuat)
 
   given unliftJoinType: NiceUnliftable[JoinType] with
     def unlift =
@@ -90,7 +79,11 @@ object Unlifter {
     def unlift =
       case '{ OptionApply.apply($a) } => OptionApply(a.unexpr)
       case '{ OptionSome.apply($a) } => OptionSome(a.unexpr)
-      case '{ OptionNone($quat) } => OptionNone(quat.unexpr)
+      case '{ OptionNone($quat) } => 
+        // Performance optimization, same as Ident. Do quat.unexper once instead of each time on 
+        // OptionNone.quat which would otherwise happen if quat.unexper would be passed directly.
+        val unliftedQuat = quat.unexpr
+        OptionNone(unliftedQuat)
       case '{ OptionIsEmpty.apply($a) } => OptionIsEmpty(a.unexpr)
       case '{ OptionMap.apply($a, $b, $c) } => OptionMap(a.unexpr, b.unexpr, c.unexpr)
       case '{ OptionTableMap.apply($a, $b, $c) } => OptionTableMap(a.unexpr, b.unexpr, c.unexpr)
@@ -99,19 +92,29 @@ object Unlifter {
   }
 
   def constString(expr: Expr[String])(using Quotes): String = expr match
-    case Const(str: String) => str
+    case Expr(str: String) => str
     case _ => throw new IllegalArgumentException(s"The expression: ${expr.show} is not a constant String")
 
 
   given unliftAst: NiceUnliftable[Ast] with {
     // TODO have a typeclass like Splicer to translate constant to strings
     def unlift =
-      case '{ Constant(${Const(b)}: Double, $quat) } => Constant(b, quat.unexpr)
-      case '{ Constant(${Const(b)}: Boolean, $quat) } => Constant(b, quat.unexpr)
-      case '{ Constant(${Const(b)}: String, $quat) } => Constant(b, quat.unexpr)
-      case '{ Constant(${Const(b)}: Int, $quat) } => Constant(b, quat.unexpr)
-      case '{ Entity.apply(${Const(b: String)}, $elems, $quat)  } =>
-        Entity(b, elems.unexpr, quat.unexpr)
+      case '{ Constant(${Expr(b: Double)}: Double, $quat) } => 
+        val unliftedQuat = quat.unexpr // Performance optimization, same as Ident and Entity
+        Constant(b, unliftedQuat)
+      case '{ Constant(${Expr(b: Boolean)}: Boolean, $quat) } => 
+        val unliftedQuat = quat.unexpr // Performance optimization, same as Ident and Entity
+        Constant(b, unliftedQuat)
+      case '{ Constant(${Expr(b: String)}: String, $quat) } => 
+        val unliftedQuat = quat.unexpr // Performance optimization, same as Ident and Entity
+        Constant(b, unliftedQuat)
+      case '{ Constant(${Expr(b: Int)}: Int, $quat) } => 
+        val unliftedQuat = quat.unexpr // Performance optimization, same as Ident and Entity
+        Constant(b, unliftedQuat)
+      case '{ Entity.apply(${Expr(b: String)}, $elems, $quat)  } =>
+        // Performance optimization, same as for Ident. Entity.quat is by-name so make sure to do unexper once here.
+        val unliftedQuat = quat.unexpr
+        Entity(b, elems.unexpr, unliftedQuat)
       case '{ Function($params, $body) } => Function(params.unexpr, body.unexpr)
       case '{ FunctionApply($function, $values) } => FunctionApply(function.unexpr, values.unexpr)
       case '{ Map(${query}, ${alias}, ${body}: Ast) } => Map(query.unexpr, alias.unexpr, body.unexpr)
@@ -126,7 +129,9 @@ object Unlifter {
         QuotationTag(constString(uid))
       case '{ Union($a, $b) } => Union(a.unexpr, b.unexpr)
       case '{ Insert($query, $assignments) } => Insert(query.unexpr, assignments.unexpr)
-      case '{ Infix($parts, $params, $pure, $quat) } => Infix(parts.unexpr, params.unexpr, pure.unexpr, quat.unexpr)
+      case '{ Infix($parts, $params, $pure, $quat) } => 
+        val unliftedQuat = quat.unexpr // Performance optimization, same as Ident and Entity
+        Infix(parts.unexpr, params.unexpr, pure.unexpr, unliftedQuat)
       case '{ Tuple.apply($values) } => Tuple(values.unexpr)
       case '{ Join($typ, $a, $b, $aliasA, $aliasB, $on) } => Join(typ.unexpr, a.unexpr, b.unexpr, aliasA.unexpr, aliasB.unexpr, on.unexpr)
       case '{ FlatJoin($typ, $a, $aliasA, $on) } => FlatJoin(typ.unexpr, a.unexpr, aliasA.unexpr, on.unexpr)
@@ -165,14 +170,14 @@ object Unlifter {
   given quatProductUnliftable: NiceUnliftable[Quat.Product] with {
     // On JVM, a Quat must be serialized and then lifted from the serialized state i.e. as a FromSerialized using JVM (due to 64KB method limit)
     def unlift =
-      case '{ Quat.Product.fromSerializedJVM(${Const(str)}) } => Quat.Product.fromSerializedJVM(str)
+      case '{ Quat.Product.fromSerializedJVM(${Expr(str: String)}) } => Quat.Product.fromSerializedJVM(str)
       case '{ Quat.Product.WithRenamesCompact.apply($tpe)(${Varargs(fields)}: _*)(${Varargs(values)}: _*)(${Varargs(renamesFrom)}: _*)(${Varargs(renamesTo)}: _*) } => Quat.Product.WithRenamesCompact(tpe.unexpr)(fields.unexprSeq: _*)(values.unexprSeq: _*)(renamesFrom.unexprSeq: _*)(renamesTo.unexprSeq: _*)
   }
 
   given quatUnliftable: NiceUnliftable[Quat] with {
     def unlift =
       // On JVM, a Quat must be serialized and then lifted from the serialized state i.e. as a FromSerialized using JVM (due to 64KB method limit)
-      case '{ Quat.fromSerializedJVM(${Const(str)}) } => Quat.fromSerializedJVM(str)
+      case '{ Quat.fromSerializedJVM(${Expr(str: String)}) } => Quat.fromSerializedJVM(str)
       case '{ Quat.Product.WithRenamesCompact.apply($tpe)(${Varargs(fields)}: _*)(${Varargs(values)}: _*)(${Varargs(renamesFrom)}: _*)(${Varargs(renamesTo)}: _*) } => Quat.Product.WithRenamesCompact(tpe.unexpr)(fields.unexprSeq: _*)(values.unexprSeq: _*)(renamesFrom.unexprSeq: _*)(renamesTo.unexprSeq: _*)
       
       // TODO Ask Nicolas How do you uniquely identify this?
