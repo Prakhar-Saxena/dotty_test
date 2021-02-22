@@ -602,72 +602,36 @@ ctx.run(r.size) // SELECT COUNT(p.age) FROM Person p
 
 ### R5.11 - isEmpty/nonEmpty
 ```scala
-val q = quote {
-  query[Person].filter{ p1 =>
-    query[Person].filter(p2 => p2.id != p1.id && p2.age == p1.age).isEmpty
-  }
-}
+val isEmpty = quote {
+      query[Person].filter(p => p.name.isEmpty)
+    }
+println(isEmpty)
+println(ctx.run(isEmpty))
 
 ctx.run(q)
-// SELECT p1.id, p1.name, p1.age FROM Person p1 WHERE
-// NOT EXISTS (SELECT * FROM Person p2 WHERE (p2.id <> p1.id) AND (p2.age = p1.age))
+// // SELECT p.name, FROM Person p WHERE p.Name NOT EXISTS
 
-val q2 = quote {
-  query[Person].filter{ p1 =>
-    query[Person].filter(p2 => p2.id != p1.id && p2.age == p1.age).nonEmpty
-  }
-}
+val nonEmpty = quote {
+      query[Person].filter(p => p.name.isDefined)
+    }
+println(nonEmpty)
+println(ctx.run(nonEmpty))
 
 ctx.run(q2)
-// SELECT p1.id, p1.name, p1.age FROM Person p1 WHERE
-// EXISTS (SELECT * FROM Person p2 WHERE (p2.id <> p1.id) AND (p2.age = p1.age))
+// SELECT p.name, FROM Person p WHERE p.Name EXISTS
 ```
 
 ### R5.12 - contains
 ```scala
-val q = quote {
-  query[Person].filter(p => liftQuery(Set(1, 2)).contains(p.id))
+val contains = quote {
+   query[Person]
+    .leftJoin(query[Address])
+    .on((p, a) => a.fk.contains(12345))
+    .map((p,a) => (p.name, a))
 }
-
-ctx.run(q)
-// SELECT p.id, p.name, p.age FROM Person p WHERE p.id IN (?, ?)
-
-val q1 = quote { (ids: Query[Int]) =>
-  query[Person].filter(p => ids.contains(p.id))
-}
-
-ctx.run(q1(liftQuery(List(1, 2))))
-// SELECT p.id, p.name, p.age FROM Person p WHERE p.id IN (?, ?)
-
-val peopleWithContacts = quote {
-  query[Person].filter(p => query[Contact].filter(c => c.personId == p.id).nonEmpty)
-}
-val q2 = quote {
-  query[Person].filter(p => peopleWithContacts.contains(p.id))
-}
-
-ctx.run(q2)
-// SELECT p.id, p.name, p.age FROM Person p WHERE p.id IN (SELECT p1.* FROM Person p1 WHERE EXISTS (SELECT c.* FROM Contact c WHERE c.personId = p1.id))
-```
-
-### R5.13 - distinct
-```scala
-val q = quote {
-  query[Person].map(p => p.age).distinct
-}
-
-ctx.run(q)
-// SELECT DISTINCT p.age FROM Person p
-```
-
-### R5.14 - nested
-```scala
-val q = quote {
-  query[Person].filter(p => p.name == "John").nested.map(p => p.age)
-}
-
-ctx.run(q)
-// SELECT p.age FROM (SELECT p.age FROM Person p WHERE p.name = 'John') p
+println(contains)
+println(ctx.run(contains))
+// SELECT p.name, a.fk FROM Person p LEFT JOIN Address a ON a.fk = 12345
 ```
 
 ### R5.15 - joins
@@ -983,10 +947,11 @@ ctx.run(q)
 
 This method is typically used for inspecting nullable fields inside of boolean conditions, most notably joining!
 ```scala
-val q = quote {
-  query[Person].join(query[Address]).on((p, a)=> a.fk.exists(_ == p.id))
-}
-ctx.run(q)
+val exists = quote {
+       query[Person].join(query[Address]).on((p, a)=> a.fk.exists(_ == p.id))
+     }
+println(exists)
+println(ctx.run(exists))
 // SELECT p.id, p.name, a.fk, a.street, a.zip FROM Person p INNER JOIN Address a ON a.fk = p.id
 ```
 
@@ -1096,6 +1061,21 @@ val q = quote {
 ctx.run(q) //: List[(Option[String], Option[Int])]
 // SELECT p.name, a.fk FROM Person p LEFT JOIN Address a ON a.fk = p.id
 ```
+
+#### getOrElse
+```scala
+val getOrElse = quote {
+  query[Person]
+    .leftJoin(query[Address])
+    .on((p, a) => a.fk.getOrElse("No fk value"))
+    .map((p,a) => (p.name, a))
+}
+println(getOrElse)
+println(ctx.run(getOrElse))
+// SELECT p.name, a.fk FROM Person p LEFT JOIN Address a ON a.fk =! NULL 
+// ELSE a.fk == "No fk value"
+```
+
 
 #### orNull / getOrNull
 
