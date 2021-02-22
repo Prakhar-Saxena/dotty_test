@@ -1326,179 +1326,55 @@ ctx.run(q)
 
 Database actions are defined using quotations as well. These actions don't have a collection-like API but rather a custom DSL to express inserts, deletes, and updates.
 
-### R6.1 - insert
-
+### R6.1 - Insert
+Insert can take an entire object, or it can take specific columns in a map list as seen in the example:
 ```scala
-val a = quote(query[Contact].insert(lift(Contact(999, "+1510488988"))))
-
-ctx.run(a) // = 1 if the row was inserted 0 otherwise
-// INSERT INTO Contact (personId,phone) VALUES (?, ?)
-```
-
-#### It is also possible to insert specific columns:
-
-```scala
-val a = quote {
-  query[Contact].insert(_.personId -> lift(999), _.phone -> lift("+1510488988"))
+inline def insertOutput_object = quote {
+      query[Person].insert(Person("John", 21))
 }
+//INSERT INTO Person (name,age) VALUES ('John', 21)
 
-ctx.run(a)
-// INSERT INTO Contact (personId,phone) VALUES (?, ?)
-```
-
-### R6.2 - batch insert
-```scala
-val a = quote {
-  liftQuery(List(Person(0, "John", 31),Person(2, "name2", 32))).foreach(e => query[Person].insert(e))
+inline def insertOutput_attributes = quote {
+      query[Person].insert(_.name -> "John", _.age -> 21)
 }
-
-ctx.run(a) //: List[Long] size = 2. Contains 1 @ positions, where row was inserted E.g List(1,1)
-// INSERT INTO Person (id,name,age) VALUES (?, ?, ?)
+//INSERT INTO Person (name,age) VALUES ('John', 21)
 ```
 
-### R6.3 - update
+### R6.2 - Update
+Update, like insert can take an entire object, or specific columns in a map list as seen in the example
 ```scala
-val a = quote {
-  query[Person].filter(_.id == 999).update(lift(Person(999, "John", 22)))
+inline def updateOutput = quote {
+      query[Person].filter(_.name=="Joe").update(_.name -> "John")
 }
-
-ctx.run(a) // = Long number of rows updated
-// UPDATE Person SET id = ?, name = ?, age = ? WHERE id = 999
+//UPDATE Person SET name = 'John' WHERE name = 'Joe'
 ```
 
-#### Using specific columns:
-
+### R6.3 - Delete
+Delete, like Delete in SQl, is a simple construct, doesn't require any supporting constructs, although a filter(WHERE) 
+can be useful.
 ```scala
-val a = quote {
-  query[Person].filter(p => p.id == lift(999)).update(_.age -> lift(18))
+inline def deleteOutput = quote {
+      query[Person].filter(p => p.name == "Joe").delete
 }
-
-ctx.run(a)
-// UPDATE Person SET age = ? WHERE id = ?
+//DELTE FROM Person WHERE name = 'Joe'
 ```
 
-#### Using columns as part of the update:
-
+### R6.4 - Returning
 ```scala
-val a = quote {
-  query[Person].filter(p => p.id == lift(999)).update(p => p.age -> (p.age + 1))
+inline def queryReturning = quote {
+      query[Person].insert(_.name -> "John", _.age -> 21).returning(p => p.name)
 }
-
-ctx.run(a)
-// UPDATE Person SET age = (age + 1) WHERE id = ?
+//INSERT INTO Person (name, age) VALUES ('Joe', 21) RETURNING name
 ```
 
-### R6.4 - batch update
-
+### R6.5 - Returning Generated
 ```scala
-val a = quote {
-  liftQuery(List(Person(1, "name", 31),Person(2, "name2", 32))).foreach { person =>
-     query[Person].filter(_.id == person.id).update(_.name -> person.name, _.age -> person.age)
-  }
+inline def queryReturningGenerated = quote {
+      query[Person].insert(_.name -> "John", _.age -> 21).returningGenerated(p => p.name)
 }
-
-ctx.run(a) // : List[Long] size = 2. Contains 1 @ positions, where row was inserted E.g List(1,0)
-// UPDATE Person SET name = ?, age = ? WHERE id = ?
+//INSERT INTO Person (id, name, age) VALUES (-1, 'Joe', 1) RETURNING id
 ```
 
-### R6.5 - delete
-```scala
-val a = quote {
-  query[Person].filter(p => p.name == "").delete
-}
-
-ctx.run(a) // = Long the number of rows deleted
-// DELETE FROM Person WHERE name = ''
-```
-
-### R6.6 - insert or update (upsert, conflict)
-
-Upsert is supported by Postgres, SQLite, MySQL and H2 `onConflictIgnore` only (since v1.4.200 in PostgreSQL compatibility mode)
-
-#### Postgres and SQLite
-
-##### Ignore conflict
-```scala
-val a = quote {
-  query[Product].insert(_.id -> 1, _.sku -> 10).onConflictIgnore
-}
-
-// INSERT INTO Product AS t (id,sku) VALUES (1, 10) ON CONFLICT DO NOTHING
-```
-
-Ignore conflict by explicitly setting conflict target
-```scala
-val a = quote {
-  query[Product].insert(_.id -> 1, _.sku -> 10).onConflictIgnore(_.id)
-}
-
-// INSERT INTO Product AS t (id,sku) VALUES (1, 10) ON CONFLICT (id) DO NOTHING
-```
-
-Multiple properties can be used as well.
-```scala
-val a = quote {
-  query[Product].insert(_.id -> 1, _.sku -> 10).onConflictIgnore(_.id, _.description)
-}
-
-// INSERT INTO Product (id,sku) VALUES (1, 10) ON CONFLICT (id,description) DO NOTHING
-```
-
-##### Update on Conflict
-
-Resolve conflict by updating existing row if needed. In `onConflictUpdate(target)((t, e) => assignment)`: `target` refers to
-conflict target, `t` - to existing row and `e` - to excluded, e.g. row proposed for insert.
-```scala
-val a = quote {
-  query[Product]
-    .insert(_.id -> 1, _.sku -> 10)
-    .onConflictUpdate(_.id)((t, e) => t.sku -> (t.sku + e.sku))
-}
-
-// INSERT INTO Product AS t (id,sku) VALUES (1, 10) ON CONFLICT (id) DO UPDATE SET sku = (t.sku + EXCLUDED.sku)
-```
-Multiple properties can be used with `onConflictUpdate` as well.
-```scala
-val a = quote {
-  query[Product]
-    .insert(_.id -> 1, _.sku -> 10)
-    .onConflictUpdate(_.id, _.description)((t, e) => t.sku -> (t.sku + e.sku))
-}
-
-INSERT INTO Product AS t (id,sku) VALUES (1, 10) ON CONFLICT (id,description) DO UPDATE SET sku = (t.sku + EXCLUDED.sku)
-```
-
-#### MySQL
-
-Ignore any conflict, e.g. `insert ignore`
-```scala
-val a = quote {
-  query[Product].insert(_.id -> 1, _.sku -> 10).onConflictIgnore
-}
-
-// INSERT IGNORE INTO Product (id,sku) VALUES (1, 10)
-```
-
-Ignore duplicate key conflict by explicitly setting it
-```scala
-val a = quote {
-  query[Product].insert(_.id -> 1, _.sku -> 10).onConflictIgnore(_.id)
-}
-
-// INSERT INTO Product (id,sku) VALUES (1, 10) ON DUPLICATE KEY UPDATE id=id
-```
-
-Resolve duplicate key by updating existing row if needed. In `onConflictUpdate((t, e) => assignment)`: `t` refers to
-existing row and `e` - to values, e.g. values proposed for insert.
-```scala
-val a = quote {
-  query[Product]
-    .insert(_.id -> 1, _.sku -> 10)
-    .onConflictUpdate((t, e) => t.sku -> (t.sku + e.sku))
-}
-
-// INSERT INTO Product (id,sku) VALUES (1, 10) ON DUPLICATE KEY UPDATE sku = (sku + VALUES(sku))
-```
 ## ---ADD REMAINING PARSERS HERE---
 
 ## Dynamic queries
