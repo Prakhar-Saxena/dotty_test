@@ -1357,6 +1357,83 @@ inline def queryReturningGenerated = quote {
 
 ## ---ADD REMAINING PARSERS HERE---
 
+## R7 - Operation Parser
+
+Parses common equality, numerical, boolean, and specific object operation constructs.
+
+### R7.1 - Equality
+Parses equality operations. Equality checking is done at the database level with both idiomatic Scala and an ANSI-style truth tables.
+```scala
+//==
+val numericEquality = quote{ 6 == 6 }
+ 
+//.equals()
+val someVar: string = "Hello World"
+val objectEquality = quote{ someVar.equals("Hello World") }
+```
+
+### R7.2 - Boolean
+Parses the boolean constructs NOT, AND, and OR.
+```scala
+// Not !
+val notOperator = quote{ !false }
+// And &&
+val andOperator = quote{ true && true }
+// Or ||
+val orOperator = quote{ true || false }
+```
+
+### R7.3 - String
+Supports the following Unary and Binary String operations:
+Binary: Addition, startsWith, split
+Unary: toUpperCase, toLowerCase, toLong, toInt
+```scala
+// +
+val addition = quote{"Dotty" + "Quill"}
+ 
+// toUpperCase
+val myLowerString: String = "quill"
+val toUpperCase = quote{ myLowerString.toUpperCase }
+ 
+// toLowerCase
+val myUpperString: String = "QUILL"
+val toLowerCase = quote{ myUpperString.toLowerCase }
+ 
+// toLong
+val myLongString: String = "1234512345"
+val toLong = quote{ myLongString.toLong }
+ 
+// toInt
+val myIntString: String = "12345"
+val toInt = quote{ myIntString.toInt}
+ 
+// startsWith
+val mySWString: String = "Quill"
+val startsWith = quote{ mySWString.startsWith("Qui") }
+ 
+// split
+val mySplitString: String = "Dotty Quill"
+val split = quote{ myIntString.split(" ")}
+```
+
+### R7.4 - Set
+Supports the following Unary and Binary Set operations:
+Binary: Contains
+Unary: isEmpty, nonEmpty
+```scala
+//isEmpty
+val isEmptySet = Set()
+val isEmpty = quote{ isEmptySet.isEmpty }
+ 
+//nonEmpty
+val isNonEmptySet= Set(1,2,3)
+val isNonEmpty = quote{ isNonEmptySet.nonEmpty }
+ 
+//contains
+val containsSet = Set(1,2,3)
+val contains = quote{ containsSet.contains(1) }
+```
+
 ## Dynamic queries
 
 Quill's default operation mode is compile-time, but there are queries that have their structure defined only at runtime. Quill automatically falls back to runtime normalization and query generation if the query's structure is not static. Example:
