@@ -290,17 +290,17 @@ case class ActionParser(root: Parser[Ast] = Parser.empty)(override implicit val 
 
   def del: PartialFunction[Expr[_], Ast] = {
     case '{ type t; ($query: EntityQueryModel[`t`]).insert(($first: `t`=>(Any,Any)), (${Varargs(others)}: Seq[`t` => (Any, Any)]): _*) } =>
-      println("****************** Insert Parsed Here ***********")
+      println("****************** Insert Parsed Here******************")
       val insertAssignments = first.asTerm +: others.map(_.asTerm)
       val assignments = insertAssignments.filterNot(isNil(_)).map(a => AssignmentTerm.OrFail(a))
       Insert(astParse(query), assignments.toList)
     case '{ type t; ($query: EntityQueryModel[`t`]).update(($first: `t`=>(Any,Any)), (${Varargs(others)}: Seq[`t` => (Any, Any)]): _*) } =>
-      println("****************** Update Parsed Here ***********")
+      println("****************** Update Parsed Here ******************")
       val updateAssignments = first.asTerm +: others.map(_.asTerm)
       val assignments = updateAssignments.filterNot(isNil(_)).map(a => AssignmentTerm.OrFail(a))
       Update(astParse(query), assignments.toList)
     case '{ type t; ($query: EntityQueryModel[`t`]).delete } =>
-      println("****************** Delete Parsed Here ***********")
+      println("****************** Delete Parsed Here ******************")
       Delete(astParse(query))
 
     // case Unseal(Update) =>
@@ -550,7 +550,7 @@ case class OperationsParser(root: Parser[Ast] = Parser.empty)(override implicit 
 
     //toUpperCase
     case '{ ($str:String).toUpperCase } =>
-      Console.println("String to uppercase found")
+      Console.println("****************** String to uppercase found ******************")
       UnaryOperation(StringOperator.toUpperCase, astParse(str))
 
     //toLowerCase
@@ -584,7 +584,7 @@ case class OperationsParser(root: Parser[Ast] = Parser.empty)(override implicit 
     // Apply(Select(Lit(1), +), Lit(1))
     // Expr[_] => BinaryOperation
     case NumericOperation(binaryOperation) =>
-      Console.println("Numeric Operation");
+      Console.println("****************** Numeric Operation ******************");
       binaryOperation
   }
 
