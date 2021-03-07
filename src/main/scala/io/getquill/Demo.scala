@@ -87,7 +87,7 @@ object Demo {
     }
     println(ctx.run(exists))
 
-    //compileeeeeeeeeee
+    //compileeeeeeeeeeeeee
 
     println('\n'*10)
   }

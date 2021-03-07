@@ -290,17 +290,17 @@ case class ActionParser(root: Parser[Ast] = Parser.empty)(override implicit val 
 
   def del: PartialFunction[Expr[_], Ast] = {
     case '{ type t; ($query: EntityQueryModel[`t`]).insert(($first: `t`=>(Any,Any)), (${Varargs(others)}: Seq[`t` => (Any, Any)]): _*) } =>
-      println("****************** Insert Parsed Here******************")
+      println("\n\n****************** Insert Parsed ******************")
       val insertAssignments = first.asTerm +: others.map(_.asTerm)
       val assignments = insertAssignments.filterNot(isNil(_)).map(a => AssignmentTerm.OrFail(a))
       Insert(astParse(query), assignments.toList)
     case '{ type t; ($query: EntityQueryModel[`t`]).update(($first: `t`=>(Any,Any)), (${Varargs(others)}: Seq[`t` => (Any, Any)]): _*) } =>
-      println("****************** Update Parsed Here ******************")
+      println("\n\n****************** Update Parsed ******************")
       val updateAssignments = first.asTerm +: others.map(_.asTerm)
       val assignments = updateAssignments.filterNot(isNil(_)).map(a => AssignmentTerm.OrFail(a))
       Update(astParse(query), assignments.toList)
     case '{ type t; ($query: EntityQueryModel[`t`]).delete } =>
-      println("****************** Delete Parsed Here ******************")
+      println("\n\n****************** Delete Parsed ******************")
       Delete(astParse(query))
 
     // case Unseal(Update) =>
@@ -377,6 +377,7 @@ case class OptionParser(root: Parser[Ast] = Parser.empty)(override implicit val 
       OptionNonEmpty(astParse(o))
 
     case '{ ($o: Option[t]).isDefined } => 
+      println("\n\n****************** isDefined Parsed ******************")
       // println("=======================isDefined found=======================")
       OptionIsDefined(astParse(o))
 
@@ -391,6 +392,7 @@ case class OptionParser(root: Parser[Ast] = Parser.empty)(override implicit val 
       else OptionMap(astParse(o), cleanIdent(id, idType), astParse(body))
 
     case '{ ($o: Option[t]).exists(${Lambda1(id, idType, body)}) } =>
+      println("\n\n****************** Exists Parsed ******************")
       // println("=======================exists found=======================")
       if (is[Product](o)) OptionTableExists(astParse(o), cleanIdent(id, idType), astParse(body))
       else OptionExists(astParse(o), cleanIdent(id, idType), astParse(body))
@@ -428,6 +430,7 @@ case class QueryParser(root: Parser[Ast] = Parser.empty)(override implicit val q
       output
 
     case '{ ($q:Query[qt]).map[mt](${Lambda1(ident, tpe, body)}) } => 
+      println("\n\n****************** Map Parsed ******************")
       Map(astParse(q), cleanIdent(ident, tpe), astParse(body))
 
     case '{ ($q:Query[qt]).flatMap[mt](${Lambda1(ident, tpe, body)}) } => 
@@ -442,7 +445,9 @@ case class QueryParser(root: Parser[Ast] = Parser.empty)(override implicit val q
     case '{type t1; type t2; ($q:Query[qt]).concatMap[`t1`, `t2`](${Lambda1(ident, tpe, body)})($unknown_stuff) } => //ask Alex why is concatMap like this? what's unkonwn_stuff?
       ConcatMap(astParse(q), cleanIdent(ident, tpe), astParse(body))
 
-    case '{ ($a: Query[t]).union($b) } => Union(astParse(a), astParse(b))
+    case '{ ($a: Query[t]).union($b) } => 
+      println("\n\n****************** Union Parsed ******************")
+      Union(astParse(a), astParse(b))
 
     case '{ type t1; type t2; ($q1: Query[`t1`]).join[`t1`, `t2`](($q2: Query[`t2`])).on(${Lambda2(ident1, tpe1, ident2, tpe2, on)}) } => Join(InnerJoin, astParse(q1), astParse(q2), cleanIdent(ident1, tpe1), cleanIdent(ident2, tpe2), astParse(on))
     case '{ type t1; type t2; ($q1: Query[`t1`]).leftJoin[`t1`, `t2`](($q2: Query[`t2`])).on(${Lambda2(ident1, tpe1, ident2, tpe2, on)}) } => Join(InnerJoin, astParse(q1), astParse(q2), cleanIdent(ident1, tpe1), cleanIdent(ident2, tpe2), astParse(on))
@@ -455,6 +460,7 @@ case class QueryParser(root: Parser[Ast] = Parser.empty)(override implicit val q
       FlatJoin(LeftJoin, astParse(q1), cleanIdent(ident1, tpe), astParse(on))
     
     case '{ type t; ($q: Query[`t`]).take($n: Int) } =>
+      println("\n\n****************** Take Parsed ******************")
       Take(astParse(q),astParse(n))
     case '{ type t; ($q: Query[`t`]).drop($n: Int) } =>
       Drop(astParse(q),astParse(n))
@@ -550,22 +556,22 @@ case class OperationsParser(root: Parser[Ast] = Parser.empty)(override implicit 
 
     //toUpperCase
     case '{ ($str:String).toUpperCase } =>
-      Console.println("****************** String to uppercase found ******************")
+      Console.println("\n\n****************** String to Uppercase Parsed ******************")
       UnaryOperation(StringOperator.toUpperCase, astParse(str))
 
     //toLowerCase
     case '{ ($str:String).toLowerCase } =>
-      Console.println("String to lowercase found")
+      Console.println("****************** String to Lowercase Parsed ******************")
       UnaryOperation(StringOperator.toLowerCase, astParse(str))
 
     //toLong
     case '{ ($str:String).toLong } =>
-      Console.println("String toLong found")
+      Console.println("String toLong Parsed")
       UnaryOperation(StringOperator.toLong, astParse(str))
 
     //startsWith
     case '{ ($left:String).startsWith($right) } =>
-      Console.println("String startsWith found")
+      Console.println("String startsWith Parsed")
       BinaryOperation(astParse(left), StringOperator.startsWith, astParse(right))
 
     //split
@@ -584,7 +590,7 @@ case class OperationsParser(root: Parser[Ast] = Parser.empty)(override implicit 
     // Apply(Select(Lit(1), +), Lit(1))
     // Expr[_] => BinaryOperation
     case NumericOperation(binaryOperation) =>
-      Console.println("****************** Numeric Operation ******************");
+      Console.println("\n\n****************** Numeric Operation Parsed ******************");
       binaryOperation
   }
 
